@@ -26,7 +26,7 @@ const ShopProducts = ({ styles, products }) => {
     return (
         <div className={`w-full grid ${
             styles === 'grid'
-                ? 'grid-cols-2 md:grid-cols-3' // 2 cột trên mobile, 3 cột trên desktop
+                ? 'grid-cols-2 md:grid-cols-3'
                 : 'grid-cols-1'
         } gap-4`}>
             {products.map((product) => (
