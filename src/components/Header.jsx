@@ -171,7 +171,6 @@ const Header = () => {
                 </div>
             </div>
 
-            {/* Mobile sidebar */}
             <div className='hidden md-lg:block'>
                 <div
                     onClick={() => setShowSidebar(true)}

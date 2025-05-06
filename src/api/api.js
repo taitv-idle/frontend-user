@@ -1,16 +1,18 @@
 import axios from "axios";
-const local = 'http://localhost:5000'
-const production = 'http://localhost:6000'
+const development = 'http://localhost:5000'; // Môi trường dev
+const production = 'http://localhost:8000';  // Môi trường production (đổi cổng)
 
-let api_url = ''
-let mode = 'development'
+let api_url = '';
+const mode = 'development';
+
 if (mode === 'development') {
-    api_url = production
+    api_url = development; // Dev dùng localhost:5000
 } else {
-    api_url = local
+    api_url = production;  // Production dùng localhost:8000 (hoặc URL thực tế)
 }
-const api = axios.create({
-    baseURL : `${api_url}/api`
-})
 
-export default api
+const api = axios.create({
+    baseURL: `${api_url}/api`
+});
+
+export default api;
