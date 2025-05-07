@@ -29,8 +29,17 @@ export const send_message = createAsyncThunk(
 )
 // End Method 
 
- 
-
+export const search_sellers = createAsyncThunk(
+    'chat/search_sellers',
+    async(query, { rejectWithValue, fulfillWithValue }) => {
+        try {
+            const {data} = await api.get(`/chat/search-sellers?query=${encodeURIComponent(query)}`)
+            return fulfillWithValue(data)
+        } catch (error) {
+            return rejectWithValue(error.response.data)
+        }
+    }
+)
 
 export const chatReducer = createSlice({
     name: 'chat',
@@ -39,18 +48,22 @@ export const chatReducer = createSlice({
         fb_messages : [],
         currentFd: "",
         errorMessage : '',
-        successMessage: '', 
+        successMessage: '',
+        searchResults: [],
+        isSearching: false
     },
     reducers : {
-
         messageClear : (state,_) => {
             state.errorMessage = ""
             state.successMessage = ""
         },
         updateMessage: (state, {payload}) => {
             state.fb_messages = [...state.fb_messages, payload]
+        },
+        clearSearchResults: (state) => {
+            state.searchResults = []
+            state.isSearching = false
         }
-  
     },
     extraReducers: (builder) => {
         builder 
@@ -72,9 +85,21 @@ export const chatReducer = createSlice({
             state.fb_messages = [...state.fb_messages, payload.message];
             state.successMessage = 'Message Send Success';
         })
-
-       
+        .addCase(search_sellers.pending, (state) => {
+            state.isSearching = true
+            state.errorMessage = ''
+        })
+        .addCase(search_sellers.fulfilled, (state, { payload }) => {
+            state.isSearching = false
+            state.searchResults = payload.sellers || []
+        })
+        .addCase(search_sellers.rejected, (state, { payload }) => {
+            state.isSearching = false
+            state.errorMessage = payload?.message || 'Lỗi khi tìm kiếm người bán'
+            state.searchResults = []
+        })
     }
 })
-export const {messageClear,updateMessage} = chatReducer.actions
+
+export const {messageClear, updateMessage, clearSearchResults} = chatReducer.actions
 export default chatReducer.reducer
