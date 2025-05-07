@@ -33,25 +33,24 @@ const Home = () => {
                 {/* Categories Section */}
                 <section className="py-12 bg-white">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="text-center mb-8">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                                Danh Mục Sản Phẩm
+                            </h2>
+                            <div className="w-20 h-1 bg-gradient-to-r from-[#ff6b6b] to-[#ffa07a] mx-auto rounded-full"></div>
+                        </div>
                         <Categorys />
                     </div>
                 </section>
 
                 {/* Featured Products Section */}
-                <section className="py-16 bg-gradient-to-b from-gray-50 to-white">
-                    <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="text-center mb-12">
-                            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 relative inline-block">
-                                Sản Phẩm Nổi Bật
-                                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-[#ff6b6b] to-[#ffa07a] rounded-full"></div>
-                            </h2>
-                            <p className="text-gray-600 mt-4 max-w-2xl mx-auto">
-                                Khám phá những sản phẩm được yêu thích nhất của chúng tôi, được lựa chọn cẩn thận để mang đến trải nghiệm mua sắm tuyệt vời cho bạn.
-                            </p>
-                        </div>
-                        <div className="w-full">
-                            <FeatureProducts products={products} />
-                        </div>
+                <section className="py-20 bg-gradient-to-b from-white to-gray-50">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8 text-center relative inline-block">
+                            Sản Phẩm Nổi Bật
+                            <span className="block w-24 h-1 bg-gradient-to-r from-[#ff6b6b] to-[#ffa07a] mx-auto rounded-full mt-2"></span>
+                        </h2>
+                        <FeatureProducts products={products} />
                     </div>
                 </section>
 
