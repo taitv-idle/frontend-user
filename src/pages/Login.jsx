@@ -19,6 +19,15 @@ const Login = () => {
         password: ''
     });
 
+    // State cho validation
+    const [errors, setErrors] = useState({
+        email: '',
+        password: ''
+    });
+
+    // State cho remember me
+    const [rememberMe, setRememberMe] = useState(false);
+
     // State hiệu ứng hover cho các nút
     const [isHovered, setIsHovered] = useState({
         facebook: false,
@@ -27,18 +36,58 @@ const Login = () => {
         sellerRegister: false
     });
 
+    // Validate email
+    const validateEmail = (email) => {
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(email);
+    };
+
     // Xử lý thay đổi input
     const inputHandle = (e) => {
+        const { name, value } = e.target;
         setState({
             ...state,
-            [e.target.name]: e.target.value
+            [name]: value
         });
+
+        // Clear error when user starts typing
+        setErrors({
+            ...errors,
+            [name]: ''
+        });
+    };
+
+    // Validate form
+    const validateForm = () => {
+        let isValid = true;
+        const newErrors = { ...errors };
+
+        if (!state.email) {
+            newErrors.email = 'Vui lòng nhập email';
+            isValid = false;
+        } else if (!validateEmail(state.email)) {
+            newErrors.email = 'Email không hợp lệ';
+            isValid = false;
+        }
+
+        if (!state.password) {
+            newErrors.password = 'Vui lòng nhập mật khẩu';
+            isValid = false;
+        } else if (state.password.length < 6) {
+            newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+            isValid = false;
+        }
+
+        setErrors(newErrors);
+        return isValid;
     };
 
     // Xử lý submit form đăng nhập
     const login = (e) => {
         e.preventDefault();
-        dispatch(customer_login(state));
+        if (validateForm()) {
+            dispatch(customer_login({ ...state, rememberMe }));
+        }
     };
 
     // Hiệu ứng thông báo và điều hướng sau khi đăng nhập
@@ -85,12 +134,14 @@ const Login = () => {
                                     </label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <FaEnvelope className="h-5 w-5 text-gray-400" />
+                                            <FaEnvelope className={`h-5 w-5 ${errors.email ? 'text-red-500' : 'text-gray-400'}`} />
                                         </div>
                                         <input
                                             onChange={inputHandle}
                                             value={state.email}
-                                            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                            className={`block w-full pl-10 pr-3 py-3 border ${
+                                                errors.email ? 'border-red-500' : 'border-gray-300'
+                                            } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500`}
                                             type="email"
                                             name="email"
                                             id="email"
@@ -98,6 +149,9 @@ const Login = () => {
                                             required
                                         />
                                     </div>
+                                    {errors.email && (
+                                        <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+                                    )}
                                 </div>
 
                                 <div className="space-y-1">
@@ -106,12 +160,14 @@ const Login = () => {
                                     </label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <FaLock className="h-5 w-5 text-gray-400" />
+                                            <FaLock className={`h-5 w-5 ${errors.password ? 'text-red-500' : 'text-gray-400'}`} />
                                         </div>
                                         <input
                                             onChange={inputHandle}
                                             value={state.password}
-                                            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                            className={`block w-full pl-10 pr-3 py-3 border ${
+                                                errors.password ? 'border-red-500' : 'border-gray-300'
+                                            } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500`}
                                             type="password"
                                             name="password"
                                             id="password"
@@ -119,6 +175,9 @@ const Login = () => {
                                             required
                                         />
                                     </div>
+                                    {errors.password && (
+                                        <p className="mt-1 text-sm text-red-500">{errors.password}</p>
+                                    )}
                                 </div>
 
                                 <div className="flex items-center justify-between">
@@ -127,9 +186,11 @@ const Login = () => {
                                             id="remember-me"
                                             name="remember-me"
                                             type="checkbox"
-                                            className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                                            checked={rememberMe}
+                                            onChange={(e) => setRememberMe(e.target.checked)}
+                                            className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded cursor-pointer"
                                         />
-                                        <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                                        <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 cursor-pointer">
                                             Ghi nhớ đăng nhập
                                         </label>
                                     </div>
@@ -143,9 +204,17 @@ const Login = () => {
 
                                 <button
                                     type="submit"
-                                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition duration-300"
+                                    disabled={loader}
+                                    className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Đăng nhập
+                                    {loader ? (
+                                        <>
+                                            <FadeLoader color="#ffffff" height={15} width={2} margin={2} />
+                                            <span className="ml-2">Đang xử lý...</span>
+                                        </>
+                                    ) : (
+                                        'Đăng nhập'
+                                    )}
                                 </button>
                             </form>
 
@@ -162,6 +231,7 @@ const Login = () => {
                             {/* Nút đăng nhập bằng mạng xã hội */}
                             <div className="mt-6 grid grid-cols-2 gap-3">
                                 <button
+                                    type="button"
                                     onMouseEnter={() => setIsHovered({...isHovered, facebook: true})}
                                     onMouseLeave={() => setIsHovered({...isHovered, facebook: false})}
                                     className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition duration-300"
@@ -171,6 +241,7 @@ const Login = () => {
                                 </button>
 
                                 <button
+                                    type="button"
                                     onMouseEnter={() => setIsHovered({...isHovered, google: true})}
                                     onMouseLeave={() => setIsHovered({...isHovered, google: false})}
                                     className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition duration-300"

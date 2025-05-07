@@ -20,7 +20,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { product_details } from '../store/reducers/homeReducer';
 import toast from 'react-hot-toast';
 import { add_to_card,messageClear,add_to_wishlist } from '../store/reducers/cardReducer';
-
+ 
 const Details = () => {
     const navigate = useNavigate();
     const {slug} = useParams();

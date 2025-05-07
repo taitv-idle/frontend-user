@@ -30,40 +30,40 @@ const Categorys = () => {
                         <span className="absolute bottom-0 left-1/2 w-24 h-1 bg-rose-500 transform -translate-x-1/2 translate-y-2 opacity-0 group-hover:opacity-100 group-hover:translate-y-3 transition-all duration-300"></span>
                     </h2>
                 </div>
-                <Carousel
+                    <Carousel
                     responsive={responsive}
-                    infinite
+                        infinite
                     autoPlay={autoPlay}
                     autoPlaySpeed={2000}
-                    arrows={categorys.length > 6}
+                        arrows={categorys.length > 6}
                     containerClass="category-carousel"
-                    itemClass="px-2"
+                        itemClass="px-2"
                     pauseOnHover
                     removeArrowOnDeviceType={["xs", "sm"]}
                     beforeChange={() => {}}
                     afterChange={() => {}}
                     onMouseEnter={() => setAutoPlay(false)}
                     onMouseLeave={() => setAutoPlay(true)}
-                >
-                    {categorys.map((c, i) => (
-                        <Link
-                            key={i}
-                            to={`/products?category=${c.name}`}
+                    >
+                        {categorys.map((c, i) => (
+                            <Link
+                                key={i}
+                                to={`/products?category=${c.name}`}
                             className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-all flex flex-col items-center p-4"
-                        >
+                            >
                             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden bg-gray-50 flex items-center justify-center mb-4 border-2 border-rose-100 group-hover:border-rose-400 transition-all">
-                                <img
-                                    src={c.image}
-                                    alt={c.name}
+                                        <img
+                                            src={c.image}
+                                            alt={c.name}
                                     className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
-                                />
-                            </div>
+                                        />
+                                    </div>
                             <span className="text-base font-semibold text-gray-800 group-hover:text-rose-600 transition-colors text-center">
-                                {c.name}
-                            </span>
-                        </Link>
-                    ))}
-                </Carousel>
+                                        {c.name}
+                                    </span>
+                            </Link>
+                        ))}
+                    </Carousel>
             </div>
         </section>
     );

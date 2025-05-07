@@ -1,235 +1,225 @@
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { Link, useSearchParams } from 'react-router-dom';
 import { IoIosArrowForward } from "react-icons/io";
 import { Range } from 'react-range';
-import {AiFillStar} from 'react-icons/ai'
-import {CiStar} from 'react-icons/ci' 
+import { AiFillStar } from 'react-icons/ai';
+import { CiStar } from 'react-icons/ci';
 import Products from '../components/products/Products';
-import {BsFillGridFill} from 'react-icons/bs'
-import {FaThList} from 'react-icons/fa'
+import { BsFillGridFill } from 'react-icons/bs';
+import { FaThList } from 'react-icons/fa';
 import ShopProducts from '../components/products/ShopProducts';
 import Pagination from '../components/Pagination';
 import { useDispatch, useSelector } from 'react-redux';
-import { price_range_product,query_products } from '../store/reducers/homeReducer';
+import { price_range_product, query_products } from '../store/reducers/homeReducer';
 
 const CategoryShop = () => {
+    const [searchParams] = useSearchParams();
+    const category = searchParams.get('category');
 
-    let [searchParams, setSearchParams] = useSearchParams()
-    const category = searchParams.get('category')
-    console.log(category)
+    const dispatch = useDispatch();
+    const { products, priceRange, latest_product, totalProduct, parPage } = useSelector(state => state.home);
 
-    const dispatch = useDispatch()
-    const {products,categorys,priceRange,latest_product,totalProduct,parPage} = useSelector(state => state.home)
+    useEffect(() => {
+        dispatch(price_range_product());
+    }, [dispatch]);
 
-    useEffect(() => { 
-        dispatch(price_range_product())
-    },[])
-    useEffect(() => { 
+    const [state, setState] = useState({ values: [priceRange.low, priceRange.high] });
+    useEffect(() => {
         setState({
             values: [priceRange.low, priceRange.high]
-        })
-    },[priceRange])
+        });
+    }, [priceRange]);
 
-    const [filter, setFilter] = useState(true) 
+    const [filter, setFilter] = useState(true);
+    const [rating, setRating] = useState('');
+    const [styles, setStyles] = useState('grid');
+    const [pageNumber, setPageNumber] = useState(1);
+    const [sortPrice, setSortPrice] = useState('');
 
-    const [state, setState] = useState({values: [priceRange.low, priceRange.high]})
-    const [rating, setRating] = useState('')
-    const [styles, setStyles] = useState('grid')
+    const queryParams = useMemo(() => ({
+        low: state.values[0] || '',
+        high: state.values[1] || '',
+        category,
+        rating,
+        sortPrice,
+        pageNumber
+    }), [state.values, category, rating, sortPrice, pageNumber]);
 
-   
-    const [pageNumber, setPageNumber] = useState(1)
-
-    const [sortPrice, setSortPrice] = useState('') 
-      
-    useEffect(() => { 
-        dispatch(
-            query_products({
-                low: state.values[0] || '',
-                high: state.values[1] || '',
-                category,
-                rating,
-                sortPrice,
-                pageNumber
-            })
-         )
-    },[state.values[0],state.values[1],category,rating,sortPrice,pageNumber])
+    useEffect(() => {
+        dispatch(query_products(queryParams));
+    }, [dispatch, queryParams]);
 
     const resetRating = () => {
-        setRating('')
+        setRating('');
         dispatch(
             query_products({
-                low: state.values[0],
-                high: state.values[1],
-                category,
+                ...queryParams,
                 rating: '',
-                sortPrice,
-                pageNumber
             })
-         )
-    }
-    
+        );
+    };
+
+    const formatPrice = (price) => {
+        return new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND',
+            minimumFractionDigits: 0
+        }).format(price);
+    };
 
     return (
-        <div>
-           <Header/>
-           <section className='bg-[url("http://localhost:3000/images/banner/shop.png")] h-[220px] mt-6 bg-cover bg-no-repeat relative bg-left'>
-            <div className='absolute left-0 top-0 w-full h-full bg-[#2422228a]'>
-                <div className='w-[85%] md:w-[80%] sm:w-[90%] lg:w-[90%] h-full mx-auto'>
-                    <div className='flex flex-col justify-center gap-1 items-center h-full w-full text-white'>
-                <h2 className='text-3xl font-bold'>Category Page </h2>
-                <div className='flex justify-center items-center gap-2 text-2xl w-full'>
-                        <Link to='/'>Home</Link>
-                        <span className='pt-1'>
-                        <IoIosArrowForward />
-                        </span>
-                        <span>Category </span>
-                      </div>
-                    </div> 
-                </div> 
-            </div> 
-           </section>
-
-           <section className='py-16'>
-            <div className='w-[85%] md:w-[80%] sm:w-[90%] lg:w-[90%] h-full mx-auto'>
-            <div className={` md:block hidden ${!filter ? 'mb-6' : 'mb-0'} `}>
-                <button onClick={() => setFilter(!filter)} className='text-center w-full py-2 px-3 bg-indigo-500 text-white'>Filter Product</button> 
-            </div>
-
-            <div className='w-full flex flex-wrap'>
-                <div className={`w-3/12 md-lg:w-4/12 md:w-full pr-8 ${filter ? 'md:h-0 md:overflow-hidden md:mb-6' : 'md:h-auto md:overflow-auto md:mb-0' } `}>
-                    
-
-        <div className='py-2 flex flex-col gap-5'>
-            <h2 className='text-3xl font-bold mb-3 text-slate-600'>Price</h2>
-             
-             <Range
-                step={5}
-                min={priceRange.low}
-                max={priceRange.high}
-                values={(state.values)}
-                onChange={(values) => setState({values})}
-                renderTrack={({props,children}) => (
-                    <div {...props} className='w-full h-[6px] bg-slate-200 rounded-full cursor-pointer'>
-                        {children}
+        <div className="bg-gray-50 min-h-screen">
+            <Header />
+            {/* Banner */}
+            <section className="bg-gradient-to-r from-red-400 to-red-500 py-12 mb-10">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex flex-col items-center justify-center text-white">
+                        <h2 className="text-3xl font-bold mb-2">Danh mục sản phẩm</h2>
+                        <div className="flex items-center gap-2 text-lg">
+                            <Link to="/" className="hover:text-red-200">Trang chủ</Link>
+                            <IoIosArrowForward />
+                            <span>{category}</span>
+                        </div>
                     </div>
-                )}
-                renderThumb={({ props }) => (
-                    <div className='w-[15px] h-[15px] bg-[#059473] rounded-full' {...props} />
-    
-                )} 
-             />  
-         <div>
-         <span className='text-slate-800 font-bold text-lg'>${Math.floor(state.values[0])} - ${Math.floor(state.values[1])}</span>  
-           </div>
-         </div>
+                </div>
+            </section>
 
-         <div className='py-3 flex flex-col gap-4'>
-            <h2 className='text-3xl font-bold mb-3 text-slate-600'>Rating </h2>
-            <div className='flex flex-col gap-3'>
-                 <div onClick={() => setRating(5)} className='text-orange-500 flex justify-start items-start gap-2 text-xl cursor-pointer'>
-                    <span><AiFillStar/> </span>
-                    <span><AiFillStar/> </span>
-                    <span><AiFillStar/> </span>
-                    <span><AiFillStar/> </span>
-                    <span><AiFillStar/> </span>
-                  </div>
-
-                  <div onClick={() => setRating(4)} className='text-orange-500 flex justify-start items-start gap-2 text-xl cursor-pointer'>
-                    <span><AiFillStar/> </span>
-                    <span><AiFillStar/> </span>
-                    <span><AiFillStar/> </span>
-                    <span><AiFillStar/> </span>
-                    <span><CiStar/> </span>
-                  </div>
-
-                  <div onClick={() => setRating(3)} className='text-orange-500 flex justify-start items-start gap-2 text-xl cursor-pointer'>
-                    <span><AiFillStar/> </span>
-                    <span><AiFillStar/> </span>
-                    <span><AiFillStar/> </span>
-                    <span><CiStar/> </span>
-                    <span><CiStar/> </span>
-                  </div>
-
-                  <div onClick={() => setRating(2)} className='text-orange-500 flex justify-start items-start gap-2 text-xl cursor-pointer'>
-                    <span><AiFillStar/> </span>
-                    <span><AiFillStar/> </span>
-                    <span><CiStar/> </span>
-                    <span><CiStar/> </span>
-                    <span><CiStar/> </span>
-                  </div>
-
-                  <div onClick={() => setRating(1)} className='text-orange-500 flex justify-start items-start gap-2 text-xl cursor-pointer'>
-                    <span><AiFillStar/> </span>
-                    <span><CiStar/> </span>
-                    <span><CiStar/> </span>
-                    <span><CiStar/> </span>
-                    <span><CiStar/> </span>
-                  </div>
-
-                  <div onClick={resetRating} className='text-orange-500 flex justify-start items-start gap-2 text-xl cursor-pointer'>
-                  <span><CiStar/> </span>
-                  <span><CiStar/> </span>
-                  <span><CiStar/> </span>
-                  <span><CiStar/> </span>
-                  <span><CiStar/> </span>
-                  </div> 
-            </div> 
-         </div>
-        
-        
-        <div className='py-5 flex flex-col gap-4 md:hidden'>
-            <Products title='Latest Product'  products={latest_product} />
-        </div> 
-          </div>
-
-        <div className='w-9/12 md-lg:w-8/12 md:w-full'>
-            <div className='pl-8 md:pl-0'>
-                <div className='py-4 bg-white mb-10 px-3 rounded-md flex justify-between items-start border'>
-                    <h2 className='text-lg font-medium text-slate-600'> ({totalProduct}) Products </h2>
-        <div className='flex justify-center items-center gap-3'>
-            <select onChange={(e)=>setSortPrice(e.target.value)} className='p-1 border outline-0 text-slate-600 font-semibold' name="" id="">
-                <option value="">Sort By</option>
-                <option value="low-to-high">Low to High Price</option>
-                <option value="high-to-low">High to Low Price </option>
-            </select>
-        <div className='flex justify-center items-start gap-4 md-lg:hidden'>
-            <div onClick={()=> setStyles('grid')} className={`p-2 ${styles === 'grid' && 'bg-slate-300'} text-slate-600 hover:bg-slate-300 cursor-pointer rounded-sm `} >
-                  <BsFillGridFill/>  
-            </div>
-            <div onClick={()=> setStyles('list')} className={`p-2 ${styles === 'list' && 'bg-slate-300'} text-slate-600 hover:bg-slate-300 cursor-pointer rounded-sm `} >
-                  <FaThList/>  
-            </div> 
-        </div> 
-        </div> 
-         </div> 
-
-         <div className='pb-8'>
-                  <ShopProducts products={products} styles={styles} />  
-         </div>
-
-         <div>
-           {
-             totalProduct > parPage &&  <Pagination pageNumber={pageNumber} setPageNumber={setPageNumber} totalItem={totalProduct} parPage={parPage} showItem={Math.floor(totalProduct / parPage )} />
-           }
-         </div>
-
-
-
-
-
-            </div> 
-         </div>  
-
-
-
-
-            </div>
-            </div> 
-           </section>
-
-           <Footer/>
+            <section className="py-8">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex flex-col lg:flex-row gap-8">
+                        {/* Sidebar Filter */}
+                        <div className={`lg:w-1/4 ${!filter ? 'hidden lg:block' : ''}`}>
+                            <div className="bg-white rounded-lg shadow-sm p-6 space-y-8">
+                                {/* Price Filter */}
+                                <div>
+                                    <h3 className="text-lg font-semibold text-red-600 mb-4 relative after:absolute after:bottom-0 after:left-0 after:w-12 after:h-1 after:bg-red-600">Khoảng giá</h3>
+                                    <div className="py-2">
+                                        <Range
+                                            step={100000}
+                                            min={priceRange.low}
+                                            max={priceRange.high}
+                                            values={state.values}
+                                            onChange={(values) => setState({ values })}
+                                            renderTrack={({ props, children }) => (
+                                                <div {...props} className="w-full h-2 bg-red-100 rounded-full cursor-pointer">{children}</div>
+                                            )}
+                                            renderThumb={({ props }) => (
+                                                <div {...props} className="w-5 h-5 bg-red-400 rounded-full focus:outline-none focus:ring-2 focus:ring-red-500" />
+                                            )}
+                                        />
+                                        <div className="flex justify-between mt-4 text-sm text-gray-600">
+                                            <span>{formatPrice(state.values[0])}</span>
+                                            <span>{formatPrice(state.values[1])}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* Rating Filter */}
+                                <div>
+                                    <h3 className="text-lg font-semibold text-red-600 mb-4 relative after:absolute after:bottom-0 after:left-0 after:w-12 after:h-1 after:bg-red-600">Đánh giá</h3>
+                                    <div className="space-y-3">
+                                        {[5, 4, 3, 2, 1].map((stars) => (
+                                            <div
+                                                key={stars}
+                                                onClick={() => setRating(stars)}
+                                                className={`flex items-center gap-2 cursor-pointer ${rating === stars ? 'text-red-500' : 'text-gray-300'}`}
+                                            >
+                                                {[...Array(stars)].map((_, i) => (
+                                                    <AiFillStar key={i} />
+                                                ))}
+                                                {[...Array(5 - stars)].map((_, i) => (
+                                                    <CiStar key={i} />
+                                                ))}
+                                                <span className="text-sm text-gray-600 ml-2">
+                                                    {stars} sao {stars === 5 ? '' : 'trở lên'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                        <button
+                                            onClick={resetRating}
+                                            className="text-sm text-gray-600 hover:text-red-600"
+                                        >
+                                            Xóa bộ lọc
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {/* Latest Products */}
+                            <div className="mt-8">
+                                <Products title="Sản phẩm mới nhất" products={latest_product} />
+                            </div>
+                        </div>
+                        {/* Main Content */}
+                        <div className="lg:w-3/4">
+                            {/* Toolbar */}
+                            <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => setFilter(!filter)}
+                                        className="lg:hidden flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                                    >
+                                        {filter ? 'Ẩn bộ lọc' : 'Hiện bộ lọc'}
+                                    </button>
+                                    <span className="text-gray-600">
+                                        Hiển thị {totalProduct} sản phẩm
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <select
+                                        value={sortPrice}
+                                        onChange={(e) => setSortPrice(e.target.value)}
+                                        className="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                    >
+                                        <option value="">Sắp xếp</option>
+                                        <option value="low-to-high">Giá thấp đến cao</option>
+                                        <option value="high-to-low">Giá cao đến thấp</option>
+                                    </select>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setStyles('grid')}
+                                            className={`p-2 rounded-md ${
+                                                styles === 'grid'
+                                                    ? 'bg-red-100 text-red-500'
+                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            <BsFillGridFill />
+                                        </button>
+                                        <button
+                                            onClick={() => setStyles('list')}
+                                            className={`p-2 rounded-md ${
+                                                styles === 'list'
+                                                    ? 'bg-red-100 text-red-500'
+                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            <FaThList />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {/* Products */}
+                            <div className="mb-8">
+                                <ShopProducts products={products} styles={styles} />
+                            </div>
+                            {/* Pagination */}
+                            {totalProduct > parPage && (
+                                <div className="flex justify-center">
+                                    <Pagination
+                                        pageNumber={pageNumber}
+                                        setPageNumber={setPageNumber}
+                                        totalItem={totalProduct}
+                                        parPage={parPage}
+                                        showItem={Math.floor(totalProduct / parPage)}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <Footer />
         </div>
     );
 };

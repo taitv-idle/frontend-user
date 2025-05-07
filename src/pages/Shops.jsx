@@ -95,7 +95,7 @@ const Shops = () => {
             <Header />
 
             {/* Hero Banner */}
-            <section className="bg-gradient-to-r from-emerald-500 to-emerald-600 py-16 mb-12">
+            <section className="bg-gradient-to-r from-red-400 to-red-500 py-12 mb-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center">
                         <h1 className="text-4xl font-bold text-white mb-4">Cửa Hàng</h1>
@@ -120,7 +120,7 @@ const Shops = () => {
                     />
                     <button
                         onClick={fetchProducts}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 transition-colors"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-red-400 to-red-500 text-white px-4 py-2 rounded-md hover:bg-emerald-700 transition-colors"
                     >
                         Tìm kiếm
                     </button>
