@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { Link, useNavigate } from 'react-router-dom';
@@ -12,6 +12,7 @@ import {
     quantity_dec
 } from '../store/reducers/cardReducer';
 import toast from 'react-hot-toast';
+import { ClipLoader } from 'react-spinners';
 
 const Card = () => {
     const dispatch = useDispatch();
@@ -22,26 +23,38 @@ const Card = () => {
         price,
         buy_product_item,
         shipping_fee,
-        outofstock_products
+        outofstock_products,
+        loading
     } = useSelector(state => state.card);
     const navigate = useNavigate();
+    const [couponCode, setCouponCode] = useState('');
+    const [applyingCoupon, setApplyingCoupon] = useState(false);
 
     // Lấy danh sách sản phẩm trong giỏ hàng khi component được tải
     useEffect(() => {
-        dispatch(get_card_products(userInfo.id));
-    }, [dispatch, userInfo.id]);
+        if (userInfo?.id) {
+            dispatch(get_card_products(userInfo.id));
+        }
+    }, [dispatch, userInfo?.id]);
 
     // Xử lý thông báo thành công
     useEffect(() => {
         if (successMessage) {
             toast.success(successMessage);
             dispatch(messageClear());
-            dispatch(get_card_products(userInfo.id));
+            if (userInfo?.id) {
+                dispatch(get_card_products(userInfo.id));
+            }
         }
-    }, [successMessage, dispatch, userInfo.id]);
+    }, [successMessage, dispatch, userInfo?.id]);
 
     // Điều hướng đến trang thanh toán
     const redirect = () => {
+        if (!userInfo) {
+            toast.error('Vui lòng đăng nhập để tiếp tục');
+            navigate('/login');
+            return;
+        }
         navigate('/shipping', {
             state: {
                 products: card_products,
@@ -70,20 +83,36 @@ const Card = () => {
         }
     };
 
+    // Xử lý áp dụng mã giảm giá
+    const handleApplyCoupon = () => {
+        if (!couponCode.trim()) {
+            toast.error('Vui lòng nhập mã giảm giá');
+            return;
+        }
+        setApplyingCoupon(true);
+        // TODO: Implement coupon logic
+        setTimeout(() => {
+            toast.error('Mã giảm giá không hợp lệ');
+            setApplyingCoupon(false);
+        }, 1000);
+    };
+
     // Tính tổng giá tiền bao gồm phí vận chuyển
     const totalPrice = price + shipping_fee;
+    const freeShipping = totalPrice >= 500000;
 
     return (
         <div className="min-h-screen flex flex-col">
             <Header />
 
             {/* Banner giới thiệu */}
-            <section className='bg-[url("http://localhost:3000/images/banner/shop.png")] h-[220px] bg-cover bg-no-repeat relative bg-center'>
-                <div className='absolute inset-0 bg-[#2422228a] flex items-center justify-center'>
-                    <div className='text-center text-white px-4'>
-                        <h2 className='text-3xl font-bold mb-2'>Giỏ Hàng Của Bạn</h2>
+            <section className='bg-gradient-to-r from-red-500 to-red-600 h-[220px] relative'>
+                <div className='absolute inset-0 bg-black/20'></div>
+                <div className='container mx-auto px-4 h-full flex items-center justify-center'>
+                    <div className='text-center text-white relative z-10'>
+                        <h2 className='text-3xl font-bold mb-3'>Giỏ Hàng Của Bạn</h2>
                         <div className='flex justify-center items-center gap-2'>
-                            <Link to='/' className='hover:text-green-300 transition'>Trang chủ</Link>
+                            <Link to='/' className='hover:text-red-200 transition'>Trang chủ</Link>
                             <IoIosArrowForward className="text-sm" />
                             <span>Giỏ hàng</span>
                         </div>
@@ -94,7 +123,11 @@ const Card = () => {
             {/* Nội dung chính giỏ hàng */}
             <section className='bg-gray-50 flex-grow py-12'>
                 <div className='container mx-auto px-4 max-w-7xl'>
-                    {card_products.length > 0 || outofstock_products.length > 0 ? (
+                    {loading ? (
+                        <div className="flex justify-center items-center min-h-[400px]">
+                            <ClipLoader color="#22c55e" size={40} />
+                        </div>
+                    ) : card_products.length > 0 || outofstock_products.length > 0 ? (
                         <div className='flex flex-col lg:flex-row gap-8'>
                             {/* Danh sách sản phẩm */}
                             <div className='lg:w-2/3'>
@@ -109,22 +142,41 @@ const Card = () => {
 
                                         {card_products.map((shop) => (
                                             <div key={shop.shopId} className='p-4 border-b border-gray-100 last:border-0'>
-                                                <h3 className='text-md font-medium text-gray-700 mb-3'>{shop.shopName}</h3>
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <h3 className='text-md font-medium text-gray-700'>{shop.shopName}</h3>
+                                                    <Link 
+                                                        to={`/dashboard/chat/${shop.shopId}`}
+                                                        className="text-sm text-blue-600 hover:text-blue-700"
+                                                    >
+                                                        Chat với người bán
+                                                    </Link>
+                                                </div>
 
                                                 {shop.products.map((product) => (
                                                     <div key={product._id} className='flex flex-col sm:flex-row gap-4 py-4 border-t border-gray-100 first:border-0'>
                                                         <div className='flex flex-1 gap-4'>
-                                                            <img
-                                                                className='w-20 h-20 object-cover rounded border border-gray-200'
-                                                                src={product.productInfo.images[0]}
-                                                                alt={product.productInfo.name}
-                                                            />
+                                                            <Link 
+                                                                to={`/product/details/${product.productInfo.slug}`}
+                                                                className="w-20 h-20 flex-shrink-0"
+                                                            >
+                                                                <img
+                                                                    className='w-full h-full object-cover rounded border border-gray-200 hover:opacity-90 transition'
+                                                                    src={product.productInfo.images[0]}
+                                                                    alt={product.productInfo.name}
+                                                                />
+                                                            </Link>
                                                             <div className='flex-1'>
-                                                                <h3 className='font-medium text-gray-800 hover:text-green-600 transition'>
+                                                                <Link 
+                                                                    to={`/product/details/${product.productInfo.slug}`}
+                                                                    className='font-medium text-gray-800 hover:text-green-600 transition block mb-1'
+                                                                >
                                                                     {product.productInfo.name}
-                                                                </h3>
+                                                                </Link>
                                                                 <p className='text-sm text-gray-500'>Thương hiệu: {product.productInfo.brand}</p>
                                                                 <p className='text-sm text-gray-500'>Màu sắc: {product.productInfo.color}</p>
+                                                                <p className='text-sm text-gray-500 mt-1'>
+                                                                    Còn lại: <span className="text-green-600">{product.productInfo.stock}</span> sản phẩm
+                                                                </p>
                                                             </div>
                                                         </div>
 
@@ -135,12 +187,12 @@ const Card = () => {
                                                                 </p>
                                                                 {product.productInfo.discount > 0 && (
                                                                     <div className='flex gap-2 items-center justify-end'>
-                                    <span className='text-sm text-gray-400 line-through'>
-                                      {(product.productInfo.price * 1000).toLocaleString('vi-VN')}₫
-                                    </span>
+                                                                        <span className='text-sm text-gray-400 line-through'>
+                                                                            {(product.productInfo.price * 1000).toLocaleString('vi-VN')}₫
+                                                                        </span>
                                                                         <span className='text-xs bg-red-100 text-red-600 px-1 rounded'>
-                                      -{product.productInfo.discount}%
-                                    </span>
+                                                                            -{product.productInfo.discount}%
+                                                                        </span>
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -148,8 +200,8 @@ const Card = () => {
                                                             <div className='flex items-center gap-4'>
                                                                 <div className='flex items-center border border-gray-200 rounded'>
                                                                     <button
-                                                                        onClick={() => dec(product.quantity, product._id)}
-                                                                        className='px-3 py-1 text-gray-500 hover:bg-gray-100'
+                                                                        onClick={() => dec(product.quantity, product.productInfo.stock, product._id)}
+                                                                        className='px-3 py-1 text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed'
                                                                         disabled={product.quantity <= 1}
                                                                     >
                                                                         -
@@ -157,7 +209,8 @@ const Card = () => {
                                                                     <span className='px-3 py-1 text-center w-8'>{product.quantity}</span>
                                                                     <button
                                                                         onClick={() => inc(product.quantity, product.productInfo.stock, product._id)}
-                                                                        className='px-3 py-1 text-gray-500 hover:bg-gray-100'
+                                                                        className='px-3 py-1 text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed'
+                                                                        disabled={product.quantity >= product.productInfo.stock}
                                                                     >
                                                                         +
                                                                     </button>
@@ -165,6 +218,7 @@ const Card = () => {
                                                                 <button
                                                                     onClick={() => dispatch(delete_card_product(product._id))}
                                                                     className='p-1 text-red-500 hover:text-red-700 transition'
+                                                                    title="Xóa sản phẩm"
                                                                 >
                                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -191,13 +245,23 @@ const Card = () => {
                                         {outofstock_products.map((product) => (
                                             <div key={product._id} className='p-4 border-b border-gray-100 last:border-0 flex flex-col sm:flex-row gap-4 items-start sm:items-center'>
                                                 <div className='flex flex-1 gap-4'>
-                                                    <img
-                                                        className='w-20 h-20 object-cover rounded border border-gray-200'
-                                                        src={product.products[0].images[0]}
-                                                        alt={product.products[0].name}
-                                                    />
+                                                    <Link 
+                                                        to={`/product/details/${product.products[0].slug}`}
+                                                        className="w-20 h-20 flex-shrink-0"
+                                                    >
+                                                        <img
+                                                            className='w-full h-full object-cover rounded border border-gray-200 hover:opacity-90 transition'
+                                                            src={product.products[0].images[0]}
+                                                            alt={product.products[0].name}
+                                                        />
+                                                    </Link>
                                                     <div>
-                                                        <h3 className='font-medium text-gray-800'>{product.products[0].name}</h3>
+                                                        <Link 
+                                                            to={`/product/details/${product.products[0].slug}`}
+                                                            className='font-medium text-gray-800 hover:text-green-600 transition block mb-1'
+                                                        >
+                                                            {product.products[0].name}
+                                                        </Link>
                                                         <p className='text-sm text-gray-500'>Thương hiệu: {product.products[0].brand}</p>
                                                         <p className='text-sm text-red-500'>Hiện không có sẵn</p>
                                                     </div>
@@ -228,7 +292,9 @@ const Card = () => {
                                             </div>
                                             <div className='flex justify-between'>
                                                 <span className='text-gray-600'>Phí vận chuyển</span>
-                                                <span className='font-medium'>{(shipping_fee * 1000).toLocaleString('vi-VN')}₫</span>
+                                                <span className={`font-medium ${freeShipping ? 'text-green-600' : ''}`}>
+                                                    {freeShipping ? 'Miễn phí' : `${(shipping_fee * 1000).toLocaleString('vi-VN')}₫`}
+                                                </span>
                                             </div>
 
                                             <div className='pt-3 border-t border-gray-100'>
@@ -245,11 +311,22 @@ const Card = () => {
                                                 <input
                                                     id="coupon"
                                                     type="text"
+                                                    value={couponCode}
+                                                    onChange={(e) => setCouponCode(e.target.value)}
                                                     placeholder='Nhập mã giảm giá'
                                                     className='flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent'
                                                 />
-                                                <button className='px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition'>
-                                                    Áp dụng
+                                                <button 
+                                                    onClick={handleApplyCoupon}
+                                                    disabled={applyingCoupon}
+                                                    className='px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2'
+                                                >
+                                                    {applyingCoupon ? (
+                                                        <>
+                                                            <ClipLoader color="#ffffff" size={16} />
+                                                            <span>Đang áp dụng...</span>
+                                                        </>
+                                                    ) : 'Áp dụng'}
                                                 </button>
                                             </div>
                                         </div>
@@ -264,9 +341,14 @@ const Card = () => {
                                             </svg>
                                         </button>
 
-                                        <p className='text-xs text-gray-500 mt-4 text-center'>
-                                            Miễn phí vận chuyển cho đơn hàng trên 500.000₫
-                                        </p>
+                                        <div className="mt-4 space-y-2">
+                                            <p className='text-xs text-gray-500 text-center'>
+                                                Miễn phí vận chuyển cho đơn hàng trên 500.000₫
+                                            </p>
+                                            <p className='text-xs text-gray-500 text-center'>
+                                                Thời gian giao hàng dự kiến: 2-4 ngày làm việc
+                                            </p>
+                                        </div>
                                     </div>
                                 )}
                             </div>
