@@ -62,12 +62,6 @@ const FeatureProducts = ({ products }) => {
 
     return (
         <div className="w-[85%] mx-auto py-10">
-            <div className="w-full">
-                <div className="text-center flex flex-col items-center text-4xl text-slate-700 font-bold pb-12">
-                    <h2>Sản Phẩm Nổi Bật</h2>
-                    <div className="w-24 h-1 bg-gradient-to-r from-[#ff6b6b] to-[#ffa07a] mt-4 rounded-full"></div>
-                </div>
-            </div>
 
             <div className="w-full grid grid-cols-4 md-lg:grid-cols-3 md:grid-cols-2 sm:grid-cols-1 gap-6">
                 {products.map((p) => (
