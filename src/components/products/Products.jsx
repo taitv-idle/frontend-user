@@ -25,15 +25,23 @@ const Products = ({title,products}) => {
         },
     }
 
+    const formatPrice = (price) => {
+        return new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND',
+            minimumFractionDigits: 0
+        }).format(price);
+    };
+
     const ButtonGroup = ({next,previous}) => {
         return (
-            <div className='flex justify-between items-center'>
-                <div className='text-xl font-bold text-slate-600'> {title} </div>
-                <div className='flex justify-center items-center gap-3 text-slate-600'>
-                    <button onClick={()=>previous()} className='w-[30px] h-[30px] flex justify-center items-center bg-slate-300 border border-slate-200'>
+            <div className='flex justify-between items-center mb-2'>
+                <div className='text-lg font-bold text-red-500 tracking-wide'>{title}</div>
+                <div className='flex justify-center items-center gap-3 text-red-400'>
+                    <button onClick={()=>previous()} className='w-8 h-8 flex justify-center items-center bg-red-100 border border-red-200 rounded-full hover:bg-red-200 transition'>
                         <IoIosArrowBack />
                     </button>
-                    <button onClick={()=>next()} className='w-[30px] h-[30px] flex justify-center items-center bg-slate-300 border border-slate-200'>
+                    <button onClick={()=>next()} className='w-8 h-8 flex justify-center items-center bg-red-100 border border-red-200 rounded-full hover:bg-red-200 transition'>
                     <IoIosArrowForward />
 
                     </button>
@@ -61,11 +69,11 @@ const Products = ({title,products}) => {
             return(
                 <div key={i} className='flex flex-col justify-start gap-2'>
                {
-                p.map((pl, j) =>  <Link key={j} className='flex justify-start items-start' to='#'>
-                <img className='w-[110px] h-[110px]' src={pl.images[0]} alt="" />
-                <div className='px-3 flex justify-start items-start gap-1 flex-col text-slate-600'>
-                    <h2>{pl.name} </h2>
-                    <span className='text-lg font-bold'>${pl.price}</span>
+                p.map((pl, j) =>  <Link key={j} className='flex items-center gap-3 p-2 rounded-lg bg-white hover:shadow-lg transition group border border-gray-100 hover:border-red-200' to={`/product/${pl.slug}`}>
+                <img className='w-[80px] h-[80px] object-cover rounded-lg border border-gray-100 group-hover:scale-105 transition-transform duration-300' src={pl.images[0]} alt={pl.name} />
+                <div className='flex flex-col gap-1 flex-1'>
+                    <h2 className='font-medium text-gray-800 text-sm line-clamp-2 group-hover:text-red-500 transition-colors'>{pl.name}</h2>
+                    <span className='text-base font-bold text-red-400'>{formatPrice(pl.price)}</span>
                 </div>
             </Link>
                  )

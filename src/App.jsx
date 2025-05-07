@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import logo from './logo.svg';
 import './App.css';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import Home from './pages/Home';
@@ -23,12 +22,13 @@ import Wishlist from './components/dashboard/Wishlist';
 import OrderDetails from './components/dashboard/OrderDetails';
 import Chat from './components/dashboard/Chat';
 import ConfirmOrder from './pages/ConfirmOrder';
+import ProductDetail from './pages/ProductDetail';
 
 function App() {
   const dispatch = useDispatch()
   useEffect(() => {
     dispatch(get_category()) 
-},[])
+  },[dispatch])
 
 
   return (
@@ -44,6 +44,7 @@ function App() {
       <Route path='/products?' element={<CategoryShop/>} />
       <Route path='/products/search?' element={<SearchProducts/>} />
       <Route path='/product/details/:slug' element={<Details/>} /> 
+      <Route path='/product/:slug' element={<ProductDetail/>} />
       <Route path='/order/confirm?' element={<ConfirmOrder/>} /> 
 
       <Route path='/dashboard' element={<ProtectUser/>} >

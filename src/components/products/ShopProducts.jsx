@@ -1,18 +1,56 @@
 import React from 'react';
-import { FaEye, FaHeart, FaRegHeart } from "react-icons/fa";
+import { FaEye, FaHeart } from "react-icons/fa";
 import { RiShoppingCartLine } from "react-icons/ri";
 import Rating from '../Rating';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { add_to_card, add_to_wishlist, messageClear } from '../../store/reducers/cardReducer';
+import toast from 'react-hot-toast';
 
 const ShopProducts = ({ styles, products }) => {
-    const [wishlist, setWishlist] = React.useState([]);
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
+    const { userInfo } = useSelector(state => state.auth);
+    const { errorMessage, successMessage } = useSelector(state => state.card);
 
-    const toggleWishlist = (productId) => {
-        setWishlist(prev =>
-            prev.includes(productId)
-                ? prev.filter(id => id !== productId)
-                : [...prev, productId]
-        );
+    React.useEffect(() => {
+        if (successMessage) {
+            toast.success(successMessage);
+            dispatch(messageClear());
+        }
+        if (errorMessage) {
+            toast.error(errorMessage);
+            dispatch(messageClear());
+        }
+    }, [successMessage, errorMessage, dispatch]);
+
+    const add_card = (id) => {
+        if (userInfo) {
+            dispatch(add_to_card({
+                userId: userInfo.id,
+                quantity: 1,
+                productId: id
+            }));
+        } else {
+            navigate('/login');
+        }
+    };
+
+    const add_wishlist = (pro) => {
+        if (userInfo) {
+            dispatch(add_to_wishlist({
+                userId: userInfo.id,
+                productId: pro._id,
+                name: pro.name,
+                price: pro.price,
+                image: pro.images[0],
+                discount: pro.discount,
+                rating: pro.rating,
+                slug: pro.slug
+            }));
+        } else {
+            navigate('/login');
+        }
     };
 
     const formatPrice = (price) => {
@@ -54,33 +92,36 @@ const ShopProducts = ({ styles, products }) => {
 
                         {/* Product Badges */}
                         {product.discount > 0 && (
-                            <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+                            <div className="absolute top-2 left-2 bg-red-400 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
                                 -{product.discount}%
                             </div>
                         )}
 
-                        {/* Product Actions */}
-                        <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        {/* Product Actions - luôn hiển thị, icon to hơn, màu đỏ nhạt */}
+                        <div className="absolute top-2 right-2 flex flex-col gap-2 z-10">
                             <button
-                                onClick={() => toggleWishlist(product._id)}
-                                className="p-1 bg-white rounded-full shadow-sm hover:bg-red-50 transition-colors"
-                                aria-label={wishlist.includes(product._id) ? "Remove from wishlist" : "Add to wishlist"}
+                                onClick={() => add_wishlist(product)}
+                                className="p-2 bg-white rounded-full shadow-sm hover:bg-red-100 transition-colors"
+                                aria-label="Yêu thích"
                             >
-                                {wishlist.includes(product._id) ? (
-                                    <FaHeart className="text-red-500" size={12} />
-                                ) : (
-                                    <FaRegHeart className="text-gray-600 hover:text-red-500" size={12} />
-                                )}
+                                <FaHeart className="text-red-400" size={20} />
                             </button>
-
                             <Link
                                 to={`/product/details/${product.slug}`}
-                                className="p-1 bg-white rounded-full shadow-sm hover:bg-blue-50 transition-colors"
+                                className="p-2 bg-white rounded-full shadow-sm hover:bg-red-100 transition-colors"
                                 aria-label="Xem chi tiết"
                                 title="Xem chi tiết"
                             >
-                                <FaEye className="text-gray-600 hover:text-blue-600" size={12} />
+                                <FaEye className="text-red-400" size={20} />
                             </Link>
+                            <button
+                                onClick={() => add_card(product._id)}
+                                className="p-2 bg-white rounded-full shadow-sm hover:bg-red-100 transition-colors"
+                                aria-label="Thêm vào giỏ hàng"
+                                title="Thêm vào giỏ hàng"
+                            >
+                                <RiShoppingCartLine className="text-red-400" size={20} />
+                            </button>
                         </div>
                     </div>
 
@@ -89,14 +130,14 @@ const ShopProducts = ({ styles, products }) => {
                         styles === 'list' ? 'md:w-3/4 md:pl-4' : ''
                     }`}>
                         <Link to={`/product/details/${product.slug}`}>
-                            <h3 className="font-medium text-gray-800 mb-1 line-clamp-2 hover:text-emerald-600 transition-colors text-sm">
+                            <h3 className="font-medium text-gray-800 mb-1 line-clamp-2 hover:text-red-400 transition-colors text-sm">
                                 {product.name}
                             </h3>
                         </Link>
 
                         <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-2">
-                                <span className="text-base font-semibold text-emerald-600">
+                                <span className="text-base font-semibold text-red-400">
                                     {formatPrice(product.price)}
                                 </span>
                                 {product.discount > 0 && (
@@ -120,10 +161,11 @@ const ShopProducts = ({ styles, products }) => {
 
                         {styles === 'grid' && (
                             <button
-                                className="w-full flex items-center justify-center gap-1 py-1.5 mt-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors text-sm"
+                                className="w-full flex items-center justify-center gap-1 py-1.5 mt-2 bg-red-400 text-white rounded-md hover:bg-red-500 transition-colors text-sm"
                                 aria-label="Add to cart"
+                                onClick={() => add_card(product._id)}
                             >
-                                <RiShoppingCartLine size={14} />
+                                <RiShoppingCartLine size={18} />
                                 Thêm
                             </button>
                         )}
