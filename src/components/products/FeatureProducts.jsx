@@ -84,29 +84,31 @@ const FeatureProducts = ({ products }) => {
                     loading="lazy"
                     onError={(e) => (e.target.src = '/images/default-product.jpg')}
                   />
+                  {/* Nút thao tác nhanh ở giữa ảnh */}
+                  <ul className="absolute inset-0 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-500 z-30">
+                    <li
+                      onClick={() => add_wishlist(p)}
+                      title="Yêu thích"
+                      className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center cursor-pointer hover:bg-[#ff6b6b] hover:text-white hover:scale-110 transition-all duration-300 shadow"
+                    >
+                      <FaHeart size={16} />
+                    </li>
+                    <Link
+                      to={`/product/details/${p.slug}`}
+                      title="Xem chi tiết"
+                      className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center cursor-pointer hover:bg-[#ffa07a] hover:text-white hover:scale-110 transition-all duration-300 shadow"
+                    >
+                      <FaSearch size={16} />
+                    </Link>
+                    <li
+                      onClick={() => add_card(p._id)}
+                      title="Thêm vào giỏ"
+                      className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center cursor-pointer hover:bg-[#4ecdc4] hover:text-white hover:scale-110 transition-all duration-300 shadow"
+                    >
+                      <FaPlus size={16} />
+                    </li>
+                  </ul>
                 </div>
-      
-                {/* Nút tác vụ nhanh */}
-                <ul className="flex justify-center items-center gap-3 absolute w-full bottom-4 opacity-0 group-hover:opacity-100 transition-all duration-500 z-30">
-                  <li
-                    onClick={() => add_wishlist(p)}
-                    className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center cursor-pointer hover:bg-[#ff6b6b] hover:text-white hover:scale-110 transition-all duration-300 shadow"
-                  >
-                    <FaHeart size={16} />
-                  </li>
-                  <Link
-                    to={`/product/details/${p.slug}`}
-                    className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center cursor-pointer hover:bg-[#ffa07a] hover:text-white hover:scale-110 transition-all duration-300 shadow"
-                  >
-                    <FaSearch size={16} />
-                  </Link>
-                  <li
-                    onClick={() => add_card(p._id)}
-                    className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center cursor-pointer hover:bg-[#4ecdc4] hover:text-white hover:scale-110 transition-all duration-300 shadow"
-                  >
-                    <FaPlus size={16} />
-                  </li>
-                </ul>
       
                 {/* Thông tin sản phẩm */}
                 <div className="py-4 px-4 text-slate-700 flex flex-col gap-2">

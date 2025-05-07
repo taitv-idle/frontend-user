@@ -39,7 +39,7 @@ const ShopProducts = ({ styles, products }) => {
                     {/* Product Image */}
                     <div className={`relative overflow-hidden ${
                         styles === 'grid'
-                            ? 'aspect-[4/3]' // Tỷ lệ nhỏ gọn hơn
+                            ? 'aspect-[4/3]'
                             : 'md:w-1/4 aspect-[4/3] md:aspect-auto'
                     }`}>
                         <img
@@ -76,7 +76,8 @@ const ShopProducts = ({ styles, products }) => {
                             <Link
                                 to={`/product/details/${product.slug}`}
                                 className="p-1 bg-white rounded-full shadow-sm hover:bg-blue-50 transition-colors"
-                                aria-label="View product details"
+                                aria-label="Xem chi tiết"
+                                title="Xem chi tiết"
                             >
                                 <FaEye className="text-gray-600 hover:text-blue-600" size={12} />
                             </Link>
@@ -109,7 +110,7 @@ const ShopProducts = ({ styles, products }) => {
                                 <Rating
                                     ratings={product.rating}
                                     size="small"
-                                    className="space-x-0.5" // Giảm khoảng cách giữa các ngôi sao
+                                    className="space-x-0.5"
                                 />
                                 <span className="text-xs text-gray-600">
                                     ({product.sold || 0})

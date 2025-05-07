@@ -120,7 +120,7 @@ const Header = () => {
                             <div className='flex justify-between md-lg:justify-center items-center flex-wrap pl-8'>
                                 <ul className='flex justify-start items-start gap-8 text-sm font-medium md-lg:hidden'>
                                     <li>
-                                        <Link className={`p-2 block transition-colors ${pathname === '/' ? 'text-rose-600 font-semibold' : 'text-gray-700 hover:text-rose-600'}`}>
+                                        <Link to='/' className={`p-2 block transition-colors ${pathname === '/' ? 'text-rose-600 font-semibold' : 'text-gray-700 hover:text-rose-600'}`}>
                                             Trang chủ
                                         </Link>
                                     </li>

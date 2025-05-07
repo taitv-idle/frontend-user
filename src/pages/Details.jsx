@@ -20,38 +20,57 @@ import { useDispatch, useSelector } from 'react-redux';
 import { product_details } from '../store/reducers/homeReducer';
 import toast from 'react-hot-toast';
 import { add_to_card,messageClear,add_to_wishlist } from '../store/reducers/cardReducer';
- 
 
 const Details = () => {
+    const navigate = useNavigate();
+    const {slug} = useParams();
+    const dispatch = useDispatch();
+    const {product, relatedProducts, moreProducts, errorMessage} = useSelector(state => state.home);
+    const {userInfo } = useSelector(state => state.auth);
+    const {errorMessage: cardError, successMessage } = useSelector(state => state.card);
 
-    const navigate = useNavigate()
-    const {slug} = useParams()
-    const dispatch = useDispatch()
-    const {product,relatedProducts,moreProducts} = useSelector(state => state.home)
-    const {userInfo } = useSelector(state => state.auth)
-    const {errorMessage,successMessage } = useSelector(state => state.card)
+    const [image, setImage] = useState('');
+    const [state, setState] = useState('reviews');
+    const [quantity, setQuantity] = useState(1);
 
     useEffect(() => {
-        dispatch(product_details(slug))
-    },[slug])
+        dispatch(product_details(slug));
+    },[slug, dispatch]);
 
     useEffect(() => { 
         if (successMessage) {
-            toast.success(successMessage)
-            dispatch(messageClear())  
+            toast.success(successMessage);
+            dispatch(messageClear());  
         } 
-        if (errorMessage) {
-            toast.error(errorMessage)
-            dispatch(messageClear())  
+        if (cardError) {
+            toast.error(cardError);
+            dispatch(messageClear());  
         } 
-        
-    },[successMessage,errorMessage])
+    },[successMessage, cardError, dispatch]);
 
-    const images = [1,2,3,4,5,6]
-    const [image, setImage] = useState('')
-    const discount = 10
-    const stock = 3
-    const [state, setState] = useState('reviews')
+    if (!product && !errorMessage) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+        );
+    }
+
+    if (!product) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen">
+                <h2 className="text-2xl font-bold text-red-500 mb-4">
+                    {errorMessage || "Không tìm thấy sản phẩm"}
+                </h2>
+                <Link 
+                    to="/"
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                >
+                    Quay về trang chủ
+                </Link>
+            </div>
+        );
+    }
 
     const responsive = {
         superLargeDesktop: {
@@ -84,19 +103,17 @@ const Details = () => {
         },
     }
 
-    const [quantity, setQuantity] = useState(1)
-
     const inc = () => {
         if (quantity >= product.stock) {
-            toast.error('Out of Stock')
+            toast.error('Out of Stock');
         } else {
-            setQuantity(quantity + 1)
+            setQuantity(quantity + 1);
         }
     }
 
     const dec = () => {
         if (quantity > 1) {
-            setQuantity(quantity - 1)
+            setQuantity(quantity - 1);
         }
     }
 
@@ -106,9 +123,9 @@ const Details = () => {
             userId: userInfo.id,
             quantity,
             productId : product._id
-           }))
+           }));
         } else {
-            navigate('/login')
+            navigate('/login');
         }
     }
 
@@ -123,19 +140,18 @@ const Details = () => {
                 discount: product.discount,
                 rating: product.rating,
                 slug: product.slug
-            }))
+            }));
         } else {
-            navigate('/login')
+            navigate('/login');
         }
-       
     }
 
    const buynow = () => {
         let price = 0;
         if (product.discount !== 0) {
-            price = product.price - Math.floor((product.price * product.discount) / 100)
+            price = product.price - Math.floor((product.price * product.discount) / 100);
         } else {
-            price = product.price
+            price = product.price;
         }
 
         const obj = [
@@ -150,7 +166,7 @@ const Details = () => {
                     }
                 ]
             }
-        ]
+        ];
         
         navigate('/shipping',{
             state: {
@@ -159,7 +175,7 @@ const Details = () => {
                 shipping_fee : 50,
                 items: 1
             }
-        }) 
+        }); 
    }
 
 
@@ -290,16 +306,16 @@ const Details = () => {
 
     <ul className='flex justify-start items-center gap-3'>
         <li>
-            <a className='w-[38px] h-[38px] hover:bg-[#059473] hover:text-white flex justify-center items-center bg-indigo-500 rounded-full text-white' href="#"> <FaFacebookF /> </a>
+            <button type="button" className='w-[38px] h-[38px] hover:bg-[#059473] hover:text-white flex justify-center items-center bg-indigo-500 rounded-full text-white'> <FaFacebookF /> </button>
         </li>
         <li>
-            <a className='w-[38px] h-[38px] hover:bg-[#059473] hover:text-white flex justify-center items-center bg-cyan-500 rounded-full text-white' href="#"> <FaTwitter /> </a>
+            <button type="button" className='w-[38px] h-[38px] hover:bg-[#059473] hover:text-white flex justify-center items-center bg-cyan-500 rounded-full text-white'> <FaTwitter /> </button>
         </li>
         <li>
-            <a className='w-[38px] h-[38px] hover:bg-[#059473] hover:text-white flex justify-center items-center bg-purple-500 rounded-full text-white' href="#"> <FaLinkedin /> </a>
+            <button type="button" className='w-[38px] h-[38px] hover:bg-[#059473] hover:text-white flex justify-center items-center bg-purple-500 rounded-full text-white'> <FaLinkedin /> </button>
         </li>
         <li>
-            <a className='w-[38px] h-[38px] hover:bg-[#059473] hover:text-white flex justify-center items-center bg-blue-500 rounded-full text-white' href="#"> <FaGithub /> </a>
+            <button type="button" className='w-[38px] h-[38px] hover:bg-[#059473] hover:text-white flex justify-center items-center bg-blue-500 rounded-full text-white'> <FaGithub /> </button>
         </li>
     </ul> 
 

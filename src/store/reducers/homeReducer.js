@@ -68,13 +68,16 @@ export const query_products = createAsyncThunk(
 
 export const product_details = createAsyncThunk(
     'product/product_details',
-    async(slug, { fulfillWithValue }) => {
+    async(slug, { fulfillWithValue, rejectWithValue }) => {
         try {
             const {data} = await api.get(`/home/product-details/${slug}`)
-            //  console.log(data)
+            if (!data || !data.product) {
+                return rejectWithValue({ message: "Không tìm thấy sản phẩm" })
+            }
             return fulfillWithValue(data)
         } catch (error) {
-            console.log(error.respone)
+            console.log('Error:', error.response?.data || error.message)
+            return rejectWithValue(error.response?.data || { message: "Lỗi khi tải thông tin sản phẩm" })
         }
     }
 )
@@ -185,9 +188,23 @@ export const homeReducer = createSlice({
         })
 
         .addCase(product_details.fulfilled, (state, { payload }) => { 
-            state.product = payload.product;
-            state.relatedProducts = payload.relatedProducts;
-            state.moreProducts = payload.moreProducts; 
+            if (payload?.product) {
+                state.product = payload.product;
+                state.relatedProducts = payload.relatedProducts || [];
+                state.moreProducts = payload.moreProducts || [];
+                state.errorMessage = '';
+            } else {
+                state.product = null;
+                state.relatedProducts = [];
+                state.moreProducts = [];
+                state.errorMessage = "Không tìm thấy sản phẩm";
+            }
+        })
+        .addCase(product_details.rejected, (state, { payload }) => {
+            state.product = null;
+            state.relatedProducts = [];
+            state.moreProducts = [];
+            state.errorMessage = payload?.message || "Không tìm thấy sản phẩm";
         })
 
         .addCase(customer_review.fulfilled, (state, { payload }) => {
