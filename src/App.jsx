@@ -23,6 +23,7 @@ import OrderDetails from './components/dashboard/OrderDetails';
 import Chat from './components/dashboard/Chat';
 import ConfirmOrder from './pages/ConfirmOrder';
 import ProductDetail from './pages/ProductDetail';
+import OrderConfirmation from './pages/OrderConfirmation';
 
 function App() {
   const dispatch = useDispatch()
@@ -46,6 +47,7 @@ function App() {
       <Route path='/product/details/:slug' element={<Details/>} /> 
       <Route path='/product/:slug' element={<ProductDetail/>} />
       <Route path='/order/confirm?' element={<ConfirmOrder/>} /> 
+      <Route path='/order-confirmation' element={<OrderConfirmation/>} />
 
       <Route path='/dashboard' element={<ProtectUser/>} >
       <Route path='' element={<Dashboard/>} >        
@@ -59,14 +61,7 @@ function App() {
        
        </Route> 
       </Route>
-      
-       
-
-
-
-
     </Routes>
-    
     </BrowserRouter>
   );
 }

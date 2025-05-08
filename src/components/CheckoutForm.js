@@ -1,52 +1,98 @@
 import React, { useState } from 'react';
-import { PaymentElement,LinkAuthenticationElement,useStripe,useElements } from '@stripe/react-stripe-js' 
+import { PaymentElement, LinkAuthenticationElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { toast } from 'react-hot-toast';
 
-const CheckoutForm = ({orderId}) => {
+const CheckoutForm = ({ orderId }) => {
+    const stripe = useStripe();
+    const elements = useElements();
+    const [message, setMessage] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
 
-    localStorage.setItem('orderId',orderId)
-    const stripe = useStripe()
-    const elements = useElements()
-    const [message, setMessage] = useState(null)
-    const [isLoading, setIsLoading] = useState(false)
-
-    const paymentElementOptions = {
-        loyout: 'tabs'
-    }
-
-    const submit = async (e) => {
-        e.preventDefault()
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        
         if (!stripe || !elements) {
-            return
+            return;
         }
-        setIsLoading(true)
-        const { error } = await stripe.confirmPayment({
-            elements,
-            confirmParams: {
-                return_url: 'http://localhost:3000/order/confirm'
-            } 
-        })
-        if (error.type === 'card_error' || error.type === 'validation_error') {
-            setMessage(error.message)
-        } else {
-            setMessage('An Unexpected error occured')
-        }
-        setIsLoading(false)
-    }
 
+        setIsLoading(true);
+        setMessage(null);
+
+        try {
+            const { error } = await stripe.confirmPayment({
+                elements,
+                confirmParams: {
+                    return_url: `${window.location.origin}/order/confirm`,
+                },
+            });
+
+            if (error) {
+                setMessage(error.message);
+                toast.error(error.message);
+            }
+        } catch (err) {
+            console.error('Payment error:', err);
+            setMessage('Đã xảy ra lỗi không mong muốn');
+            toast.error('Đã xảy ra lỗi không mong muốn');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
-        <form onSubmit={submit} id='payment-form'>
-            <LinkAuthenticationElement id='link-authentication-element'/>
-            <PaymentElement id='payment-element' options={paymentElementOptions} />
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
+                <LinkAuthenticationElement 
+                    id="link-authentication-element"
+                    className="p-4 border rounded-md"
+                />
+                <PaymentElement 
+                    id="payment-element" 
+                    options={{
+                        layout: 'tabs',
+                        defaultValues: {
+                            billingDetails: {
+                                name: 'Customer Name'
+                            }
+                        }
+                    }}
+                    className="p-4 border rounded-md"
+                />
+            </div>
 
-            <button disabled={isLoading || !stripe || !elements} id='submit' className='px-10 py-[6px] rounded-sm hover:shadow-green-700/30 hover:shadow-lg bg-green-700 text-white'>
-                <span id='button-text'>
-                    {
-                        isLoading ? <div>Loading...</div> : "Pay Now"
-                    }
-                </span> 
+            {message && (
+                <div className="p-4 bg-red-50 text-red-600 rounded-md text-sm">
+                    {message}
+                </div>
+            )}
+
+            <button
+                disabled={isLoading || !stripe || !elements}
+                className={`w-full py-3 px-4 rounded-md font-medium text-white transition ${
+                    isLoading || !stripe || !elements
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-green-600 hover:bg-green-700'
+                }`}
+            >
+                {isLoading ? (
+                    <div className="flex items-center justify-center">
+                        <div className="w-5 h-5 border-t-2 border-b-2 border-white rounded-full animate-spin mr-2"></div>
+                        Đang xử lý...
+                    </div>
+                ) : (
+                    'Thanh toán ngay'
+                )}
             </button>
-               {message && <div>{message}</div>}
+
+            <div className="flex items-center justify-center gap-4">
+                <img src="/images/payment/visa.png" alt="Visa" className="h-8" />
+                <img src="/images/payment/mastercard.png" alt="Mastercard" className="h-8" />
+                <img src="/images/payment/jcb.png" alt="JCB" className="h-8" />
+            </div>
+
+            <p className="text-xs text-gray-500 text-center">
+                Thanh toán an toàn với Stripe - Chúng tôi không lưu trữ thông tin thẻ của bạn
+            </p>
         </form>
     );
 };
