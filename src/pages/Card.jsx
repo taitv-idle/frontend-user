@@ -11,6 +11,7 @@ import {
     quantity_inc,
     quantity_dec
 } from '../store/reducers/cardReducer';
+import { formatPrice } from '../utils/format';
 import toast from 'react-hot-toast';
 import { ClipLoader } from 'react-spinners';
 
@@ -98,8 +99,8 @@ const Card = () => {
     };
 
     // Tính tổng giá tiền bao gồm phí vận chuyển
-    const totalPrice = price + shipping_fee;
-    const freeShipping = totalPrice >= 500000;
+    const totalPrice = price + (price >= 500000 ? 0 : 40000);
+    const freeShipping = price >= 500000;
 
     return (
         <div className="min-h-screen flex flex-col">
@@ -183,12 +184,12 @@ const Card = () => {
                                                         <div className='sm:w-48 flex flex-col sm:items-end gap-3'>
                                                             <div className='text-right'>
                                                                 <p className='text-lg font-semibold text-orange-500'>
-                                                                    {((product.productInfo.price - (product.productInfo.price * product.productInfo.discount / 100)) * 1000).toLocaleString('vi-VN')}₫
+                                                                    {formatPrice(product.productInfo.price - (product.productInfo.price * product.productInfo.discount / 100))}
                                                                 </p>
                                                                 {product.productInfo.discount > 0 && (
                                                                     <div className='flex gap-2 items-center justify-end'>
                                                                         <span className='text-sm text-gray-400 line-through'>
-                                                                            {(product.productInfo.price * 1000).toLocaleString('vi-VN')}₫
+                                                                            {formatPrice(product.productInfo.price)}
                                                                         </span>
                                                                         <span className='text-xs bg-red-100 text-red-600 px-1 rounded'>
                                                                             -{product.productInfo.discount}%
@@ -288,19 +289,19 @@ const Card = () => {
                                         <div className='space-y-3 mb-6'>
                                             <div className='flex justify-between'>
                                                 <span className='text-gray-600'>Tạm tính ({buy_product_item} sản phẩm)</span>
-                                                <span className='font-medium'>{(price * 1000).toLocaleString('vi-VN')}₫</span>
+                                                <span className='font-medium'>{formatPrice(price)}</span>
                                             </div>
                                             <div className='flex justify-between'>
                                                 <span className='text-gray-600'>Phí vận chuyển</span>
                                                 <span className={`font-medium ${freeShipping ? 'text-green-600' : ''}`}>
-                                                    {freeShipping ? 'Miễn phí' : `${(shipping_fee * 1000).toLocaleString('vi-VN')}₫`}
+                                                    {freeShipping ? 'Miễn phí' : formatPrice(40000)}
                                                 </span>
                                             </div>
 
                                             <div className='pt-3 border-t border-gray-100'>
                                                 <div className='flex justify-between text-lg font-semibold'>
                                                     <span>Tổng cộng</span>
-                                                    <span className='text-green-600'>{(totalPrice * 1000).toLocaleString('vi-VN')}₫</span>
+                                                    <span className='text-green-600'>{formatPrice(totalPrice)}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -344,6 +345,9 @@ const Card = () => {
                                         <div className="mt-4 space-y-2">
                                             <p className='text-xs text-gray-500 text-center'>
                                                 Miễn phí vận chuyển cho đơn hàng trên 500.000₫
+                                            </p>
+                                            <p className='text-xs text-gray-500 text-center'>
+                                                Phí vận chuyển: 40.000₫ cho đơn hàng dưới 500.000₫
                                             </p>
                                             <p className='text-xs text-gray-500 text-center'>
                                                 Thời gian giao hàng dự kiến: 2-4 ngày làm việc

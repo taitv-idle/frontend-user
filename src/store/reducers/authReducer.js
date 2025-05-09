@@ -23,10 +23,9 @@ export const customer_login = createAsyncThunk(
         try {
             const {data} = await api.post('/customer/customer-login',info)
             localStorage.setItem('customerToken',data.token)
-           // console.log(data) 
             return fulfillWithValue(data)
         } catch (error) {
-            return rejectWithValue(error.response.data)
+            return rejectWithValue(error.response?.data || { error: 'Email hoặc mật khẩu không chính xác' })
         }
     }
 )
@@ -83,7 +82,7 @@ export const authReducer = createSlice({
             state.loader = true;
         })
         .addCase(customer_login.rejected, (state, { payload }) => {
-            state.errorMessage = payload.error;
+            state.errorMessage = payload?.error || 'Email hoặc mật khẩu không chính xác';
             state.loader = false;
         })
         .addCase(customer_login.fulfilled, (state, { payload }) => {

@@ -18,6 +18,8 @@ import { Pagination, Navigation } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
  
 const Details = () => {
     const navigate = useNavigate();
@@ -550,8 +552,59 @@ const Details = () => {
                             <Reviews product={product} />
                         ) : (
                             <div className="prose max-w-none">
-                                <p className="text-gray-600">{product.description}</p>
-</div> 
+                                <div 
+                                    className="product-description"
+                                    dangerouslySetInnerHTML={{ __html: product.description }} 
+                                />
+                                <style jsx>{`
+                                    .product-description img {
+                                        max-width: 100%;
+                                        height: auto;
+                                        margin: 1rem 0;
+                                        border-radius: 0.5rem;
+                                    }
+                                    .product-description p {
+                                        margin-bottom: 1rem;
+                                    }
+                                    .product-description h1, 
+                                    .product-description h2, 
+                                    .product-description h3, 
+                                    .product-description h4, 
+                                    .product-description h5, 
+                                    .product-description h6 {
+                                        margin-top: 1.5rem;
+                                        margin-bottom: 1rem;
+                                        font-weight: 600;
+                                    }
+                                    .product-description ul, 
+                                    .product-description ol {
+                                        margin: 1rem 0;
+                                        padding-left: 1.5rem;
+                                    }
+                                    .product-description li {
+                                        margin: 0.5rem 0;
+                                    }
+                                    .product-description blockquote {
+                                        border-left: 4px solid #e5e7eb;
+                                        padding-left: 1rem;
+                                        margin: 1rem 0;
+                                        font-style: italic;
+                                    }
+                                    .product-description table {
+                                        width: 100%;
+                                        border-collapse: collapse;
+                                        margin: 1rem 0;
+                                    }
+                                    .product-description th,
+                                    .product-description td {
+                                        border: 1px solid #e5e7eb;
+                                        padding: 0.5rem;
+                                    }
+                                    .product-description th {
+                                        background-color: #f9fafb;
+                                    }
+                                `}</style>
+                            </div> 
                         )}
     </div>  
         </div>

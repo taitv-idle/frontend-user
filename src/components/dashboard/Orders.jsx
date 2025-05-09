@@ -9,83 +9,156 @@ import toast from 'react-hot-toast';
 const Orders = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
     const [sortBy, setSortBy] = useState('newest');
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const { userInfo } = useSelector(state => state.auth);
-    const { myOrders } = useSelector(state => state.order);
+    const { myOrders, loading, errorMessage } = useSelector(state => state.order);
 
     const fetchOrders = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            await dispatch(get_orders({ status: statusFilter, customerId: userInfo.id }));
-        } catch (error) {
-            toast.error('Có lỗi xảy ra khi tải đơn hàng');
-        } finally {
-            setIsLoading(false);
+        if (!userInfo || !userInfo.id) {
+            console.log('No user info available:', userInfo);
+            toast.error('Vui lòng đăng nhập để xem đơn hàng');
+            return;
         }
-    }, [dispatch, statusFilter, userInfo.id]);
+
+        try {
+            console.log('Fetching orders for user:', {
+                userId: userInfo.id,
+                status: statusFilter
+            });
+
+            const response = await dispatch(get_orders({ 
+                status: statusFilter, 
+                customerId: userInfo.id 
+            })).unwrap();
+
+            console.log('Orders response:', response);
+            
+            if (!response || !response.orders) {
+                throw new Error('Không nhận được dữ liệu đơn hàng');
+            }
+        } catch (error) {
+            console.error('Error fetching orders:', error);
+            toast.error(error.message || 'Có lỗi xảy ra khi tải đơn hàng');
+        }
+    }, [dispatch, statusFilter, userInfo]);
 
     useEffect(() => {
-        fetchOrders();
-    }, [fetchOrders]);
+        if (userInfo) {
+            console.log('Current user info:', userInfo);
+            fetchOrders();
+        }
+    }, [fetchOrders, userInfo]);
 
-    const redirectToPayment = useCallback((order) => {
-        const totalItems = order.products.reduce((sum, product) => sum + product.quantity, 0);
-        navigate('/payment', {
-            state: {
-                price: order.price,
-                items: totalItems,
-                orderId: order._id
-            }
-        });
-    }, [navigate]);
+    const formatDate = (dateString) => {
+        const options = { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        };
+        return new Date(dateString).toLocaleDateString('vi-VN', options);
+    };
+
+    const formatPrice = (price) => {
+        return new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND'
+        }).format(price);
+    };
 
     const getStatusIcon = (status) => {
         switch (status) {
             case 'placed':
-                return <FiCheckCircle className="text-blue-500 mr-1" />;
+                return <FiClock className="w-4 h-4 text-yellow-500 mr-2" />;
             case 'pending':
-                return <FiClock className="text-yellow-500 mr-1" />;
+                return <FiPackage className="w-4 h-4 text-blue-500 mr-2" />;
             case 'cancelled':
-                return <FiXCircle className="text-red-500 mr-1" />;
+                return <FiXCircle className="w-4 h-4 text-red-500 mr-2" />;
             case 'warehouse':
-                return <FiPackage className="text-purple-500 mr-1" />;
+                return <FiCheckCircle className="w-4 h-4 text-green-500 mr-2" />;
             default:
                 return null;
         }
     };
 
-    const formatPrice = (price) => {
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+    const getStatusText = (status) => {
+        switch (status) {
+            case 'placed':
+                return 'Đã đặt hàng';
+            case 'pending':
+                return 'Đang xử lý';
+            case 'cancelled':
+                return 'Đã hủy';
+            case 'warehouse':
+                return 'Đã nhập kho';
+            default:
+                return status;
+        }
     };
 
-    const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('vi-VN', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+    const redirectToPayment = (order) => {
+        navigate(`/payment/${order._id}`);
     };
 
-    const filteredOrders = myOrders
-        .filter(order => {
-            const searchLower = searchQuery.toLowerCase();
-            return (
-                order._id.toLowerCase().includes(searchLower) ||
-                formatPrice(order.price).toLowerCase().includes(searchLower)
-            );
-        })
-        .sort((a, b) => {
-            if (sortBy === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
-            if (sortBy === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
-            if (sortBy === 'highest') return b.price - a.price;
-            if (sortBy === 'lowest') return a.price - b.price;
-            return 0;
-        });
+    const filteredOrders = myOrders?.filter(order => {
+        const matchesSearch = order._id.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesStatus = statusFilter === 'all' || order.delivery_status === statusFilter;
+        return matchesSearch && matchesStatus;
+    }) || [];
+
+    const sortedOrders = [...filteredOrders].sort((a, b) => {
+        switch (sortBy) {
+            case 'newest':
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            case 'oldest':
+                return new Date(a.createdAt) - new Date(b.createdAt);
+            case 'highest':
+                return b.price - a.price;
+            case 'lowest':
+                return a.price - b.price;
+            default:
+                return 0;
+        }
+    });
+
+    if (!userInfo) {
+        return (
+            <div className="text-center py-12">
+                <h3 className="text-lg font-medium text-gray-600">Vui lòng đăng nhập để xem đơn hàng</h3>
+                <Link
+                    to="/login"
+                    className="inline-block mt-4 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                >
+                    Đăng nhập
+                </Link>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center min-h-[400px]">
+                <ClipLoader color="#ef4444" size={40} />
+            </div>
+        );
+    }
+
+    if (errorMessage) {
+        return (
+            <div className="text-center py-12">
+                <h3 className="text-lg font-medium text-red-600">{errorMessage}</h3>
+                <button
+                    onClick={fetchOrders}
+                    className="mt-4 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                >
+                    Thử lại
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
@@ -138,11 +211,7 @@ const Orders = () => {
                 </div>
             </div>
 
-            {isLoading ? (
-                <div className="flex justify-center items-center py-12">
-                    <ClipLoader color="#ef4444" size={40} />
-                </div>
-            ) : filteredOrders.length === 0 ? (
+            {!myOrders || myOrders.length === 0 ? (
                 <div className="text-center py-12">
                     <img
                         src="/images/empty-order.png"
@@ -188,7 +257,7 @@ const Orders = () => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredOrders.map((order) => (
+                            {sortedOrders.map((order) => (
                                 <tr key={order._id} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                         #{order._id.slice(-8).toUpperCase()}
@@ -211,7 +280,7 @@ const Orders = () => {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         <div className="flex items-center">
                                             {getStatusIcon(order.delivery_status)}
-                                            <span className="capitalize">{order.delivery_status}</span>
+                                            <span className="capitalize">{getStatusText(order.delivery_status)}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">

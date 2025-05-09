@@ -172,31 +172,27 @@ export const confirm_stripe_payment = createAsyncThunk(
 
 export const get_orders = createAsyncThunk(
     'order/get_orders',
-    async({customerId,status}, { rejectWithValue,fulfillWithValue }) => {
+    async ({ status, customerId }, { rejectWithValue }) => {
         try {
-            const {data} = await api.get(`/home/coustomer/get-orders/${customerId}/${status}`)
-            // console.log(data)
-            return fulfillWithValue(data)
+            const { data } = await api.get(`/home/coustomer/get-orders/${customerId}/${status}`);
+            return data;
         } catch (error) {
-            return rejectWithValue(error.response.data)
+            return rejectWithValue(error.response.data);
         }
     }
-)
-// End Method
+);
 
 export const get_order_details = createAsyncThunk(
     'order/get_order_details',
-    async(orderId , { rejectWithValue,fulfillWithValue }) => {
+    async (orderId, { rejectWithValue }) => {
         try {
-            const {data} = await api.get(`/home/coustomer/get-order-details/${orderId}`)
-            // console.log(data)
-            return fulfillWithValue(data)
+            const { data } = await api.get(`/home/coustomer/get-order-details/${orderId}`);
+            return data;
         } catch (error) {
-            return rejectWithValue(error.response.data)
+            return rejectWithValue(error.response.data);
         }
     }
-)
-// End Method
+);
 
 // Lấy danh sách tỉnh/thành phố
 export const get_provinces = createAsyncThunk(
@@ -338,6 +334,33 @@ export const update_payment_status = createAsyncThunk(
     }
 );
 
+export const create_payment_intent = createAsyncThunk(
+    'order/create_payment_intent',
+    async ({ price, orderId }, { rejectWithValue }) => {
+        try {
+            const { data } = await api.post('/home/order/create-payment-intent', {
+                price,
+                orderId
+            });
+            return data;
+        } catch (error) {
+            return rejectWithValue(error.response.data);
+        }
+    }
+);
+
+export const get_customer_dashboard_data = createAsyncThunk(
+    'order/get_customer_dashboard_data',
+    async (userId, { rejectWithValue }) => {
+        try {
+            const { data } = await api.get(`/home/customer/dashboard/${userId}`);
+            return data;
+        } catch (error) {
+            return rejectWithValue(error.response.data);
+        }
+    }
+);
+
 const orderReducer = createSlice({
     name: 'order',
     initialState: {
@@ -355,7 +378,9 @@ const orderReducer = createSlice({
         addressLoading: false,
         addressError: null,
         isFreeShipping: false,
-        currentOrder: null
+        currentOrder: null,
+        dashboardData: null,
+        paymentIntent: null,
     },
     reducers: {
         messageClear: (state) => {
@@ -374,7 +399,13 @@ const orderReducer = createSlice({
         setCurrentOrder: (state, action) => {
             state.currentOrder = action.payload;
             state.loading = false;
-        }
+        },
+        clearPaymentIntent: (state) => {
+            state.paymentIntent = null;
+        },
+        clear_order_error: (state) => {
+            state.errorMessage = '';
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -548,9 +579,57 @@ const orderReducer = createSlice({
             .addCase(update_payment_status.rejected, (state, { payload }) => {
                 state.paymentStatus = 'failed';
                 state.errorMessage = payload?.message || "Cập nhật trạng thái thanh toán thất bại";
+            })
+            .addCase(create_payment_intent.pending, (state) => {
+                state.loading = true;
+            })
+            .addCase(create_payment_intent.fulfilled, (state, { payload }) => {
+                state.loading = false;
+                state.paymentIntent = payload;
+            })
+            .addCase(create_payment_intent.rejected, (state, { payload }) => {
+                state.loading = false;
+                state.errorMessage = payload?.message || "Lỗi khi tạo payment intent";
+            })
+            .addCase(get_customer_dashboard_data.pending, (state) => {
+                state.loading = true;
+            })
+            .addCase(get_customer_dashboard_data.fulfilled, (state, { payload }) => {
+                state.loading = false;
+                state.dashboardData = payload;
+            })
+            .addCase(get_customer_dashboard_data.rejected, (state, { payload }) => {
+                state.loading = false;
+                state.errorMessage = payload?.message || "Lỗi khi lấy dữ liệu dashboard";
+            })
+            .addCase(get_orders.pending, (state) => {
+                state.loading = true;
+                state.errorMessage = '';
+            })
+            .addCase(get_orders.fulfilled, (state, { payload }) => {
+                state.loading = false;
+                state.myOrders = payload.orders || [];
+                state.errorMessage = '';
+            })
+            .addCase(get_orders.rejected, (state, { payload }) => {
+                state.loading = false;
+                state.errorMessage = payload?.message || 'Lỗi khi lấy danh sách đơn hàng';
+            })
+            .addCase(get_order_details.pending, (state) => {
+                state.loading = true;
+                state.errorMessage = '';
+            })
+            .addCase(get_order_details.fulfilled, (state, { payload }) => {
+                state.loading = false;
+                state.myOrder = payload.order || {};
+                state.errorMessage = '';
+            })
+            .addCase(get_order_details.rejected, (state, { payload }) => {
+                state.loading = false;
+                state.errorMessage = payload?.message || 'Lỗi khi lấy thông tin đơn hàng';
             });
     }
 });
 
-export const { messageClear, resetPaymentStatus, clearLocationData, setCurrentOrder } = orderReducer.actions;
+export const { messageClear, resetPaymentStatus, clearLocationData, setCurrentOrder, clearPaymentIntent, clear_order_error } = orderReducer.actions;
 export default orderReducer.reducer;

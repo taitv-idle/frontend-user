@@ -12,6 +12,7 @@ const OrderConfirmation = () => {
     const { myOrder, loading } = useSelector(state => state.order);
     const { orderId, paymentMethod, paymentStatus, orderDetails } = location.state || {};
 
+    // Debug logging
     console.log('Location state:', location.state);
     console.log('MyOrder from Redux:', myOrder);
     console.log('OrderDetails from state:', orderDetails);
@@ -25,8 +26,16 @@ const OrderConfirmation = () => {
             return;
         }
 
-        // Xóa giỏ hàng sau khi đặt hàng thành công
-        dispatch(reset_count());
+        try {
+            // Xóa giỏ hàng sau khi đặt hàng thành công
+            dispatch(reset_count());
+            // Xóa dữ liệu giỏ hàng từ localStorage
+            localStorage.removeItem('cartItems');
+            localStorage.removeItem('cartCount');
+        } catch (error) {
+            console.error('Error clearing cart:', error);
+            // Không hiển thị lỗi cho người dùng vì đây là thao tác phụ
+        }
     }, [orderId, navigate, dispatch]);
 
     // Fetch thông tin đơn hàng
@@ -39,7 +48,12 @@ const OrderConfirmation = () => {
             } else {
                 console.log('Fetching order details from API');
                 // Nếu không có, fetch từ API
-                dispatch(get_order_details(orderId));
+                dispatch(get_order_details(orderId))
+                    .unwrap()
+                    .catch(error => {
+                        console.error('Error fetching order details:', error);
+                        toast.error('Không thể tải thông tin đơn hàng');
+                    });
             }
         }
     }, [orderId, dispatch, orderDetails]);
@@ -53,8 +67,25 @@ const OrderConfirmation = () => {
         );
     }
 
-    // Nếu không có thông tin đơn hàng, hiển thị thông báo
-    if (!myOrder && !orderDetails) {
+    // Lấy dữ liệu đơn hàng từ state hoặc API
+    const order = orderDetails || myOrder;
+    console.log('Final order data:', order);
+
+    // Debug logging cho cấu trúc dữ liệu
+    console.log('Order structure:', {
+        hasOrder: !!order,
+        hasShippingInfo: !!order?.shippingInfo,
+        hasShippingAddress: !!order?.shippingAddress,
+        hasOrderItems: !!order?.orderItems,
+        hasProducts: !!order?.products,
+        shippingInfo: order?.shippingInfo,
+        shippingAddress: order?.shippingAddress,
+        orderItems: order?.orderItems,
+        products: order?.products
+    });
+
+    // Kiểm tra nếu không có thông tin đơn hàng đầy đủ
+    if (!order) {
         console.log('No order data available');
         return (
             <div className="flex flex-col items-center justify-center min-h-screen">
@@ -69,17 +100,31 @@ const OrderConfirmation = () => {
         );
     }
 
-    const order = myOrder || orderDetails;
-    console.log('Final order data:', order);
+    // Lấy thông tin giao hàng từ cả hai cấu trúc dữ liệu
+    const shippingInfo = order.shippingInfo || order.shippingAddress;
+    const orderItems = order.orderItems || order.products;
 
-    // Kiểm tra nếu không có thông tin đơn hàng đầy đủ
-    if (!order || !order.shippingInfo || !order.orderItems) {
-        console.log('Invalid order data:', {
-            order,
-            hasShippingInfo: !!order?.shippingInfo,
-            hasOrderItems: !!order?.orderItems,
-            shippingInfo: order?.shippingInfo,
-            orderItems: order?.orderItems
+    // Tính toán giá tiền
+    const itemsPrice = order.itemsPrice || order.price || 0;
+    const taxPrice = order.taxPrice || 0;
+    const shippingPrice = order.shippingPrice || order.shipping_fee || 0;
+    const totalPrice = itemsPrice + taxPrice + shippingPrice;
+
+    // Debug logging cho dữ liệu đã xử lý
+    console.log('Price calculation:', {
+        itemsPrice,
+        taxPrice,
+        shippingPrice,
+        totalPrice,
+        originalOrder: order
+    });
+
+    // Kiểm tra nếu không có thông tin giao hàng hoặc sản phẩm
+    if (!shippingInfo || !orderItems) {
+        console.log('Missing required data:', {
+            hasShippingInfo: !!shippingInfo,
+            hasOrderItems: !!orderItems,
+            order: order
         });
         return (
             <div className="flex flex-col items-center justify-center min-h-screen">
@@ -150,14 +195,14 @@ const OrderConfirmation = () => {
                 <div className="mb-6">
                     <h2 className="text-xl font-semibold mb-4">Thông tin giao hàng</h2>
                     <div className="bg-gray-50 p-4 rounded-md">
-                        <p className="font-medium">{order.shippingInfo?.name || 'N/A'}</p>
-                        <p className="text-gray-600">{order.shippingInfo?.phone || 'N/A'}</p>
+                        <p className="font-medium">{shippingInfo.name || 'N/A'}</p>
+                        <p className="text-gray-600">{shippingInfo.phone || 'N/A'}</p>
                         <p className="text-gray-600">
                             {[
-                                order.shippingInfo?.address,
-                                order.shippingInfo?.area,
-                                order.shippingInfo?.city,
-                                order.shippingInfo?.province
+                                shippingInfo.address,
+                                shippingInfo.area,
+                                shippingInfo.city,
+                                shippingInfo.province
                             ].filter(Boolean).join(', ') || 'N/A'}
                         </p>
                     </div>
@@ -166,24 +211,48 @@ const OrderConfirmation = () => {
                 <div className="mb-6">
                     <h2 className="text-xl font-semibold mb-4">Chi tiết đơn hàng</h2>
                     <div className="space-y-4">
-                        {order.orderItems?.map((item, index) => (
-                            <div key={index} className="flex items-center justify-between border-b pb-4">
-                                <div className="flex items-center">
-                                    <img
-                                        src={item.image}
-                                        alt={item.name}
-                                        className="w-16 h-16 object-cover rounded-md"
-                                    />
-                                    <div className="ml-4">
-                                        <p className="font-medium">{item.name}</p>
-                                        <p className="text-gray-600">Số lượng: {item.quantity}</p>
+                        {orderItems.map((item, index) => {
+                            // Tính giá sản phẩm sau khi áp dụng giảm giá (nếu có)
+                            const itemPrice = item.price || 0;
+                            const discount = item.discount || 0;
+                            const finalPrice = itemPrice - (itemPrice * discount / 100);
+                            const totalItemPrice = finalPrice * (item.quantity || 0);
+
+                            return (
+                                <div key={index} className="flex items-center justify-between border-b pb-4">
+                                    <div className="flex items-center">
+                                        <img
+                                            src={item.image || '/images/placeholder.png'}
+                                            alt={item.name || 'Sản phẩm'}
+                                            className="w-16 h-16 object-cover rounded-md"
+                                            onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = '/images/placeholder.png';
+                                            }}
+                                        />
+                                        <div className="ml-4">
+                                            <p className="font-medium">{item.name || 'Sản phẩm'}</p>
+                                            <p className="text-gray-600">Số lượng: {item.quantity}</p>
+                                            {discount > 0 && (
+                                                <p className="text-red-500 text-sm">
+                                                    Giảm giá: {discount}%
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        {discount > 0 && (
+                                            <p className="text-gray-400 line-through text-sm">
+                                                {itemPrice.toLocaleString('vi-VN')}₫
+                                            </p>
+                                        )}
+                                        <p className="font-medium">
+                                            {totalItemPrice.toLocaleString('vi-VN')}₫
+                                        </p>
                                     </div>
                                 </div>
-                                <p className="font-medium">
-                                    {((item.price || 0) * (item.quantity || 0)).toLocaleString('vi-VN')}₫
-                                </p>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -191,19 +260,21 @@ const OrderConfirmation = () => {
                     <div className="space-y-2">
                         <div className="flex justify-between">
                             <p className="text-gray-600">Tạm tính:</p>
-                            <p className="font-medium">{(order.itemsPrice || 0).toLocaleString('vi-VN')}₫</p>
+                            <p className="font-medium">{itemsPrice.toLocaleString('vi-VN')}₫</p>
                         </div>
+                        {taxPrice > 0 && (
+                            <div className="flex justify-between">
+                                <p className="text-gray-600">Thuế:</p>
+                                <p className="font-medium">{taxPrice.toLocaleString('vi-VN')}₫</p>
+                            </div>
+                        )}
                         <div className="flex justify-between">
                             <p className="text-gray-600">Phí vận chuyển:</p>
-                            <p className="font-medium">{(order.shippingPrice || 0).toLocaleString('vi-VN')}₫</p>
-                        </div>
-                        <div className="flex justify-between">
-                            <p className="text-gray-600">Thuế:</p>
-                            <p className="font-medium">{(order.taxPrice || 0).toLocaleString('vi-VN')}₫</p>
+                            <p className="font-medium">{shippingPrice.toLocaleString('vi-VN')}₫</p>
                         </div>
                         <div className="flex justify-between text-lg font-semibold">
                             <p>Tổng cộng:</p>
-                            <p className="text-blue-600">{(order.totalPrice || 0).toLocaleString('vi-VN')}₫</p>
+                            <p className="text-blue-600">{totalPrice.toLocaleString('vi-VN')}₫</p>
                         </div>
                     </div>
                 </div>
@@ -216,7 +287,7 @@ const OrderConfirmation = () => {
                         Tiếp tục mua sắm
                     </button>
                     <button
-                        onClick={() => navigate('/orders')}
+                        onClick={() => navigate('/dashboard/my-orders')}
                         className="w-full px-6 py-3 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
                     >
                         Xem đơn hàng của tôi

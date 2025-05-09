@@ -35,7 +35,6 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        console.error('Response error:', error);
         
         if (error.code === 'ERR_NETWORK') {
             console.error('Network error:', error);

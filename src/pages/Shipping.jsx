@@ -18,6 +18,7 @@ import {
     set_default_address,
     clearLocationData
 } from '../store/reducers/orderReducer';
+import { formatPrice } from '../utils/format';
 import { toast } from 'react-hot-toast';
 import { ClipLoader } from 'react-spinners';
 
@@ -95,7 +96,9 @@ const Shipping = () => {
     // Tính phí vận chuyển khi giá trị đơn hàng thay đổi
     useEffect(() => {
         if (location.state?.price) {
-            dispatch(calculate_shipping_fee(location.state.price));
+            const orderPrice = location.state.price;
+            const shippingFee = orderPrice >= 500000 ? 0 : 40000;
+            dispatch(calculate_shipping_fee(shippingFee));
         }
     }, [dispatch, location.state?.price]);
 
@@ -341,7 +344,8 @@ const Shipping = () => {
     };
 
     // Tính tổng tiền: giá đơn hàng + phí vận chuyển (nếu không được miễn phí)
-    const totalPayment = price + (isFreeShipping ? 0 : (shippingFee || shipping_fee));
+    const totalPayment = price + (price >= 500000 ? 0 : 40000);
+    const freeShipping = price >= 500000;
 
     return (
         <div className="min-h-screen flex flex-col">
@@ -714,12 +718,12 @@ const Shipping = () => {
                                                                 </div>
                                                                 <div className='sm:text-right'>
                                                                     <p className='text-lg font-semibold text-orange-500'>
-                                                                        {((product.productInfo.price - (product.productInfo.price * product.productInfo.discount / 100)) * 1000).toLocaleString('vi-VN')}₫
+                                                                        {formatPrice(product.productInfo.price - (product.productInfo.price * product.productInfo.discount / 100))}
                                                                     </p>
                                                                     {product.productInfo.discount > 0 && (
                                                                         <div className='flex gap-2 items-center sm:justify-end'>
                                                                             <span className='text-sm text-gray-400 line-through'>
-                                                                                {(product.productInfo.price * 1000).toLocaleString('vi-VN')}₫
+                                                                                {formatPrice(product.productInfo.price)}
                                                                             </span>
                                                                             <span className='text-xs bg-red-100 text-red-600 px-1 rounded'>
                                                                                 -{product.productInfo.discount}%
@@ -746,19 +750,19 @@ const Shipping = () => {
                                 <div className='space-y-3 mb-6'>
                                     <div className='flex justify-between'>
                                         <span className='text-gray-600'>Tạm tính ({products.length} sản phẩm)</span>
-                                        <span className='font-medium'>{(price * 1000).toLocaleString('vi-VN')}₫</span>
+                                        <span className='font-medium'>{formatPrice(price)}</span>
                                     </div>
                                     <div className='flex justify-between'>
                                         <span className='text-gray-600'>Phí vận chuyển</span>
-                                        <span className={`font-medium ${isFreeShipping ? 'text-green-600' : ''}`}>
-                                            {isFreeShipping ? 'Miễn phí' : `${(shippingFee * 1000).toLocaleString('vi-VN')}₫`}
+                                        <span className={`font-medium ${freeShipping ? 'text-green-600' : ''}`}>
+                                            {freeShipping ? 'Miễn phí' : formatPrice(40000)}
                                         </span>
                                     </div>
 
                                     <div className='pt-3 border-t border-gray-200'>
                                         <div className='flex justify-between text-lg font-semibold'>
                                             <span>Tổng cộng</span>
-                                            <span className='text-red-600'>{(totalPayment * 1000).toLocaleString('vi-VN')}₫</span>
+                                            <span className='text-red-600'>{formatPrice(totalPayment)}</span>
                                         </div>
                                     </div>
                                 </div>
