@@ -1,59 +1,74 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import Rating from '../Rating';
-import { AiOutlineEye } from 'react-icons/ai';
-import { FaHeart } from 'react-icons/fa';
 
 const RecentlyViewed = () => {
-  const [products, setProducts] = useState([]);
-
-  useEffect(() => {
     const viewed = JSON.parse(localStorage.getItem('recentlyViewed')) || [];
-    setProducts(viewed.slice(0, 5));
-  }, []);
 
-  if (!products.length) return null;
+    const formatPrice = (price) => {
+        return new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND',
+            minimumFractionDigits: 0
+        }).format(price);
+    };
 
-  return (
-    <div className="bg-white rounded-lg shadow-sm p-4 mb-8">
-      <h3 className="text-lg font-semibold text-red-600 mb-4">Sản phẩm vừa xem</h3>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {products.map((product) => (
-          <Link to={`/product/${product.slug}`} key={product._id} className="block group">
-            <div className="relative overflow-hidden rounded-lg shadow hover:shadow-md transition-all duration-300">
-              <img
-                src={product.images[0]}
-                alt={product.name}
-                className="w-full h-28 object-cover group-hover:scale-105 transition-transform"
-              />
-              {product.discount > 0 && (
-                <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-                  -{product.discount}%
-                </div>
-              )}
-              <div className="absolute top-2 right-2 flex flex-col gap-2 z-10">
-                <span className="bg-white bg-opacity-80 rounded-full p-2 shadow-md flex items-center justify-center">
-                  <AiOutlineEye className="text-red-500" size={26} />
-                </span>
-                <span className="bg-white bg-opacity-80 rounded-full p-2 shadow-md flex items-center justify-center">
-                  <FaHeart className="text-red-500" size={22} />
-                </span>
-              </div>
+    const calculateDiscountedPrice = (price, discount) => {
+        if (!discount || discount === 0) return price;
+        return price - Math.floor((price * discount) / 100);
+    };
+
+    if (viewed.length === 0) {
+        return (
+            <div className="text-center py-4 text-gray-500">
+                Chưa có sản phẩm nào được xem gần đây
             </div>
-            <div className="mt-2">
-              <div className="font-medium text-gray-800 text-sm line-clamp-2">{product.name}</div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-red-600 font-semibold text-sm">
-                  {product.price.toLocaleString()}đ
-                </span>
-                <Rating ratings={product.rating} size="small" />
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {viewed.map((product) => {
+                const discountedPrice = calculateDiscountedPrice(product.price, product.discount);
+                
+                return (
+                    <Link
+                        key={product._id}
+                        to={`/product/details/${product.slug}`}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                        <div className="w-20 h-20 flex-shrink-0">
+                            <img
+                                src={product.images[0]}
+                                alt={product.name}
+                                className="w-full h-full object-contain rounded-md bg-white"
+                                onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = '/images/default-product.png';
+                                }}
+                            />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-medium text-gray-800 line-clamp-2 mb-1">
+                                {product.name}
+                            </h3>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-semibold text-red-500">
+                                    {formatPrice(discountedPrice)}
+                                </span>
+                                {product.discount > 0 && (
+                                    <span className="text-xs text-gray-500 line-through">
+                                        {formatPrice(product.price)}
+                                    </span>
+                                )}
+                            </div>
+                            <Rating ratings={product.rating} size="small" />
+                        </div>
+                    </Link>
+                );
+            })}
+        </div>
+    );
 };
 
 export default RecentlyViewed; 

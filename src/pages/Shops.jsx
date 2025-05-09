@@ -229,9 +229,17 @@ const Shops = () => {
                             {/* Latest Products */}
                             <div className="mt-8">
                                 <Products title="Sản phẩm mới nhất" products={latest_product} />
-                                <RecentlyViewed />
                             </div>
                             
+                            {/* Recently Viewed Products */}
+                            <div className="mt-8">
+                                <h3 className="text-lg font-semibold text-red-600 mb-4 relative after:absolute after:bottom-0 after:left-0 after:w-12 after:h-1 after:bg-red-600">
+                                    Sản phẩm vừa xem
+                                </h3>
+                                <div className="space-y-4">
+                                    <RecentlyViewed />
+                                </div>
+                            </div>
                         </div>
 
                         {/* Products Grid */}

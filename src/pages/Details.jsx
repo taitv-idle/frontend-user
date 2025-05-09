@@ -18,8 +18,6 @@ import { Pagination, Navigation } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
  
 const Details = () => {
     const navigate = useNavigate();

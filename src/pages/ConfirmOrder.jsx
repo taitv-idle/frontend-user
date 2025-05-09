@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { loadStripe } from '@stripe/stripe-js'
 import error from '../assets/error.png'
 import success from '../assets/success.png'
@@ -62,11 +62,11 @@ const ConfirmOrder = () => {
         get_load()
     },[])
 
-    const update_payment = async () => {
+    const update_payment = useCallback(async () => {
         const orderId = localStorage.getItem('orderId')
         if (orderId) {
             try {
-                const result = await dispatch(confirm_stripe_payment(orderId)).unwrap();
+                await dispatch(confirm_stripe_payment(orderId)).unwrap();
                 localStorage.removeItem('orderId')
                 setLoader(false)
                 toast.success('Thanh toán thành công!');
@@ -77,13 +77,13 @@ const ConfirmOrder = () => {
                 setLoader(false);
             }
         }
-    }
+    }, [dispatch, navigate]);
 
     useEffect(() => {
         if (message === 'succeeded') {
             update_payment()
         }
-    },[message])
+    },[message, update_payment])
 
     return (
         <div className='w-screen h-screen flex justify-center items-center flex-col gap-4'>
