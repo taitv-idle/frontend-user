@@ -31,6 +31,23 @@ export const customer_login = createAsyncThunk(
 )
 // End Method 
 
+// Add this new thunk to get current user information
+export const get_user_info = createAsyncThunk(
+    'auth/getUserInfo',
+    async (_, { rejectWithValue }) => {
+        try {
+            const { data } = await api.get('/customer/current-user');
+            return data;
+        } catch (error) {
+            if (error.response?.data?.error) {
+                return rejectWithValue(error.response.data.error);
+            } else {
+                return rejectWithValue(error.message || 'Lỗi lấy thông tin người dùng');
+            }
+        }
+    }
+);
+
 const decodeToken = (token) => {
     if (token) {
         const userInfo = jwtDecode(token)
@@ -46,14 +63,9 @@ export const update_user_info = createAsyncThunk(
     'auth/updateUserInfo',
     async (userInfo, { rejectWithValue }) => {
         try {
-            // Get the token directly for this request
-            const token = localStorage.getItem('customerToken');
-            
             const { data } = await api.post('/customer/update-profile', userInfo, {
-                withCredentials: true,
                 headers: {
-                    'Content-Type': 'multipart/form-data',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'multipart/form-data'
                 }
             });
             
@@ -135,6 +147,24 @@ export const authReducer = createSlice({
             state.userInfo = userInfo
         })
 
+        // Get user info
+        .addCase(get_user_info.pending, (state) => {
+            state.loader = true;
+        })
+        .addCase(get_user_info.fulfilled, (state, { payload }) => {
+            state.loader = false;
+            if (payload.userInfo) {
+                // Merge with existing userInfo from token
+                state.userInfo = {
+                    ...state.userInfo,
+                    ...payload.userInfo
+                };
+            }
+        })
+        .addCase(get_user_info.rejected, (state) => {
+            state.loader = false;
+        })
+
         // Update user info
         .addCase(update_user_info.pending, (state) => {
             state.loader = true;
@@ -142,7 +172,36 @@ export const authReducer = createSlice({
         })
         .addCase(update_user_info.fulfilled, (state, { payload }) => {
             state.loader = false;
-            state.userInfo = payload.user;
+            
+            // Update user info with the data returned from API
+            if (payload.userInfo) {
+                state.userInfo = {
+                    ...state.userInfo,
+                    name: payload.userInfo.name,
+                    email: payload.userInfo.email,
+                    image: payload.userInfo.image
+                };
+            }
+            
+            // If server returned a new token with updated user info
+            if (payload.token) {
+                // We should update the token in localStorage
+                localStorage.setItem('customerToken', payload.token);
+                
+                // Also decode the token to get the updated user info
+                const decodedInfo = decodeToken(payload.token);
+                // Only update non-image fields from token to avoid overriding image from userInfo
+                if (decodedInfo) {
+                    state.userInfo = {
+                        ...state.userInfo,
+                        id: decodedInfo.id,
+                        name: decodedInfo.name,
+                        email: decodedInfo.email,
+                        method: decodedInfo.method
+                    };
+                }
+            }
+            
             state.successMessage = payload.message;
         })
         .addCase(update_user_info.rejected, (state, { payload }) => {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { update_user_info } from '../../store/reducers/authReducer';
+import { update_user_info, get_user_info } from '../../store/reducers/authReducer';
 import { FiUpload, FiSave, FiEdit, FiUser } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
@@ -20,6 +20,11 @@ const Profile = () => {
     const [imagePreview, setImagePreview] = useState('');
     const [isEditing, setIsEditing] = useState(false);
 
+    // Fetch user info on component mount
+    useEffect(() => {
+        dispatch(get_user_info());
+    }, [dispatch]);
+
     // Initialize form data from user info
     useEffect(() => {
         if (userInfo) {
@@ -29,8 +34,13 @@ const Profile = () => {
                 image: null
             });
             
+            // Update image preview if userInfo has an image
             if (userInfo.image) {
+                console.log('Setting image preview from userInfo:', userInfo.image);
                 setImagePreview(userInfo.image);
+            } else {
+                console.log('No image in userInfo');
+                setImagePreview('');
             }
         }
     }, [userInfo]);
@@ -86,6 +96,21 @@ const Profile = () => {
             return;
         }
         
+        // Debug token information
+        const token = localStorage.getItem('customerToken');
+        console.log('Token exists:', !!token);
+        if (token) {
+            try {
+                // Don't log the full token for security, just check if it parses
+                const tokenData = JSON.parse(atob(token.split('.')[1]));
+                console.log('Token expiry:', new Date(tokenData.exp * 1000).toLocaleString());
+                console.log('Current time:', new Date().toLocaleString());
+                console.log('Token is expired:', tokenData.exp * 1000 < Date.now());
+            } catch (err) {
+                console.log('Invalid token format');
+            }
+        }
+        
         // Create form data for submission
         const submitData = new FormData();
         
@@ -110,6 +135,15 @@ const Profile = () => {
             if (result.success) {
                 toast.success(result.message || 'Cập nhật thông tin thành công');
                 setIsEditing(false);
+                
+                // Update image preview with new image if available
+                if (result.userInfo && result.userInfo.image) {
+                    console.log('Setting image from API response:', result.userInfo.image);
+                    setImagePreview(result.userInfo.image);
+                }
+                
+                // Fetch fresh user data after update
+                dispatch(get_user_info());
             }
         } catch (error) {
             console.error('Error updating profile:', error);
@@ -131,6 +165,7 @@ const Profile = () => {
                                 alt="Profile" 
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
+                                    console.log('Image failed to load:', imagePreview);
                                     e.target.onerror = null;
                                     e.target.src = '/images/avatar-placeholder.png';
                                 }}

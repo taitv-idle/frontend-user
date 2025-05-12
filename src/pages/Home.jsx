@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { get_products } from '../store/reducers/homeReducer';
 import Header from '../components/Header';
@@ -9,14 +9,30 @@ import Products from '../components/products/Products';
 import Footer from '../components/Footer';
 import ScrollToTop from '../components/ScrollToTop';
 import LoadingSkeleton from '../components/HomeSkeleton';
+import AIChatButton from '../components/AIChatButton';
+import AIChatModal from '../components/AIChatModal';
 
 const Home = () => {
     const dispatch = useDispatch();
     const { products, latest_product, topRated_product, discount_product, loading } = useSelector(state => state.home);
+    const [chatOpen, setChatOpen] = useState(false);
+    const [currentChatType, setCurrentChatType] = useState('openai');
 
     useEffect(() => {
         dispatch(get_products());
     }, [dispatch]);
+
+    const handleOpenChat = () => {
+        setChatOpen(true);
+    };
+
+    const handleCloseChat = () => {
+        setChatOpen(false);
+    };
+
+    const handleChatTypeChange = (type) => {
+        setCurrentChatType(type);
+    };
 
     if (loading) return <LoadingSkeleton />;
 
@@ -159,6 +175,17 @@ const Home = () => {
 
             <Footer />
             <ScrollToTop />
+            
+            {/* AI Fashion Assistant Chat Button and Modal */}
+            <AIChatButton 
+                onClick={handleOpenChat} 
+                chatType={currentChatType} 
+            />
+            <AIChatModal 
+                isOpen={chatOpen} 
+                onClose={handleCloseChat} 
+                onChatTypeChange={handleChatTypeChange}
+            />
         </div>
     );
 };
