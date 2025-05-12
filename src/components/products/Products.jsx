@@ -2,10 +2,9 @@ import React from 'react';
 import Carousel from 'react-multi-carousel';
 import { Link } from 'react-router-dom';
 import 'react-multi-carousel/lib/styles.css'
-import { IoIosArrowBack,IoIosArrowForward } from "react-icons/io";
+import { IoIosArrowBack, IoIosArrowForward } from "react-icons/io";
 
-const Products = ({title,products}) => {
-
+const Products = ({title, products}) => {
     const responsive = {
         superLargeDesktop: {
             breakpoint: { max: 4000, min: 3000 },
@@ -33,7 +32,12 @@ const Products = ({title,products}) => {
         }).format(price);
     };
 
-    const ButtonGroup = ({next,previous}) => {
+    const calculateDiscountedPrice = (price, discount) => {
+        if (!discount || discount === 0) return price;
+        return price - Math.floor((price * discount) / 100);
+    };
+
+    const ButtonGroup = ({next, previous}) => {
         return (
             <div className='flex justify-between items-center mb-2'>
                 <div className='text-lg font-bold text-red-500 tracking-wide'>{title}</div>
@@ -42,48 +46,67 @@ const Products = ({title,products}) => {
                         <IoIosArrowBack />
                     </button>
                     <button onClick={()=>next()} className='w-8 h-8 flex justify-center items-center bg-red-100 border border-red-200 rounded-full hover:bg-red-200 transition'>
-                    <IoIosArrowForward />
-
+                        <IoIosArrowForward />
                     </button>
                 </div>
-
             </div>
         )
-
     }
-
 
     return (
         <div className='flex gap-8 flex-col-reverse'>
             <Carousel
-                    autoPlay={false}
-                    infinite={false}
-                    arrows={false}
-                    responsive={responsive}
-                    transitionDuration={500}
-                    renderButtonGroupOutside={true}
-                    customButtonGroup={<ButtonGroup/>}
-                >
-       {
-        products.map((p,i)=> {
-            return(
-                <div key={i} className='flex flex-col justify-start gap-2'>
-               {
-                p.map((pl, j) =>  <Link key={j} className='flex items-center gap-3 p-2 rounded-lg bg-white hover:shadow-lg transition group border border-gray-100 hover:border-red-200' to={`/product/${pl.slug}`}>
-                <img className='w-[80px] h-[80px] object-cover rounded-lg border border-gray-100 group-hover:scale-105 transition-transform duration-300' src={pl.images[0]} alt={pl.name} />
-                <div className='flex flex-col gap-1 flex-1'>
-                    <h2 className='font-medium text-gray-800 text-sm line-clamp-2 group-hover:text-red-500 transition-colors'>{pl.name}</h2>
-                    <span className='text-base font-bold text-red-400'>{formatPrice(pl.price)}</span>
-                </div>
-            </Link>
-                 )
-               }
-            </div>
-            )
-        })
-       }
-
-                </Carousel>
+                autoPlay={false}
+                infinite={false}
+                arrows={false}
+                responsive={responsive}
+                transitionDuration={500}
+                renderButtonGroupOutside={true}
+                customButtonGroup={<ButtonGroup/>}
+            >
+                {products.map((p, i) => {
+                    return (
+                        <div key={i} className='flex flex-col justify-start gap-2'>
+                            {p.map((pl, j) => {
+                                const discountedPrice = calculateDiscountedPrice(pl.price, pl.discount);
+                                
+                                return (
+                                    <Link 
+                                        key={j} 
+                                        className='flex items-center gap-3 p-2 rounded-lg bg-white hover:shadow-lg transition group border border-gray-100 hover:border-red-200' 
+                                        to={`/product/details/${pl.slug}`}
+                                    >
+                                        <img 
+                                            className='w-[80px] h-[80px] object-cover rounded-lg border border-gray-100 group-hover:scale-105 transition-transform duration-300' 
+                                            src={pl.images[0]} 
+                                            alt={pl.name}
+                                            onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = '/images/default-product.png';
+                                            }}
+                                        />
+                                        <div className='flex flex-col gap-1 flex-1'>
+                                            <h2 className='font-medium text-gray-800 text-sm line-clamp-2 group-hover:text-red-500 transition-colors'>
+                                                {pl.name}
+                                            </h2>
+                                            <div className="flex flex-col">
+                                                <span className='text-base font-bold text-red-400'>
+                                                    {formatPrice(discountedPrice)}
+                                                </span>
+                                                {pl.discount > 0 && (
+                                                    <span className='text-sm text-gray-500 line-through'>
+                                                        {formatPrice(pl.price)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    );
+                })}
+            </Carousel>
         </div>
     );
 };

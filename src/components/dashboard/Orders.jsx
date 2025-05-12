@@ -99,6 +99,36 @@ const Orders = () => {
         }
     };
 
+    const getPaymentStatusText = (status, paymentMethod) => {
+        switch (status) {
+            case 'paid':
+                return 'Đã thanh toán';
+            case 'pending':
+                return paymentMethod === 'cod' ? 'Chờ thanh toán' : 'Chờ xác nhận';
+            case 'unpaid':
+                return 'Chưa thanh toán';
+            case 'failed':
+                return 'Thanh toán thất bại';
+            default:
+                return 'Chờ xác nhận';
+        }
+    };
+
+    const getPaymentStatusColor = (status) => {
+        switch (status) {
+            case 'paid':
+                return 'bg-green-100 text-green-800';
+            case 'pending':
+                return 'bg-yellow-100 text-yellow-800';
+            case 'unpaid':
+                return 'bg-red-100 text-red-800';
+            case 'failed':
+                return 'bg-red-100 text-red-800';
+            default:
+                return 'bg-yellow-100 text-yellow-800';
+        }
+    };
+
     const redirectToPayment = (order) => {
         navigate(`/payment/${order._id}`);
     };
@@ -269,12 +299,8 @@ const Orders = () => {
                                         {formatPrice(order.price)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                            order.payment_status === 'paid'
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-yellow-100 text-yellow-800'
-                                        }`}>
-                                            {order.payment_status === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(order.payment_status)}`}>
+                                            {getPaymentStatusText(order.payment_status, order.payment_method)}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

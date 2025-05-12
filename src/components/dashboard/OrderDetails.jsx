@@ -50,11 +50,35 @@ const OrderDetails = () => {
     };
 
     const formatPrice = (price) => {
+        if (!price) return '0 ₫';
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
-            currency: 'VND'
+            currency: 'VND',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
         }).format(price);
     };
+
+    const calculateDiscountedPrice = (price, discount) => {
+        if (!price) return 0;
+        if (!discount || discount === 0) return price;
+        return Math.floor(price - (price * discount) / 100);
+    };
+
+    const calculateShippingFee = (totalPrice) => {
+        if (!totalPrice) return 0;
+        return totalPrice >= 500000 ? 0 : 40000;
+    };
+
+    // Tính toán tổng tiền sản phẩm
+    const totalItemsPrice = myOrder.products?.reduce((total, product) => {
+        const productPrice = Number(product.price || 0);
+        const productDiscount = Number(product.discount || 0);
+        const discountedPrice = calculateDiscountedPrice(productPrice, productDiscount);
+        return total + (discountedPrice * (product.quantity || 0));
+    }, 0) || 0;
+
+    const shippingPrice = calculateShippingFee(totalItemsPrice);
 
     const getStatusIcon = (status) => {
         switch (status) {
@@ -73,14 +97,14 @@ const OrderDetails = () => {
 
     const getStatusText = (status) => {
         switch (status) {
-            case 'placed':
-                return 'Đã đặt hàng';
             case 'pending':
+                return 'Chờ xử lý';
+            case 'processing':
                 return 'Đang xử lý';
             case 'cancelled':
                 return 'Đã hủy';
-            case 'warehouse':
-                return 'Đã nhập kho';
+            case 'delivered':
+                return 'Đã giao hàng';
             default:
                 return status;
         }
@@ -92,6 +116,8 @@ const OrderDetails = () => {
                 return 'Đã thanh toán';
             case 'pending':
                 return 'Chờ thanh toán';
+            case 'unpaid':
+                return 'Chưa thanh toán';
             case 'failed':
                 return 'Thanh toán thất bại';
             default:
@@ -105,6 +131,8 @@ const OrderDetails = () => {
                 return 'text-green-600';
             case 'pending':
                 return 'text-yellow-600';
+            case 'unpaid':
+                return 'text-red-600';
             case 'failed':
                 return 'text-red-600';
             default:
@@ -176,11 +204,17 @@ const OrderDetails = () => {
                     <div className="space-y-2">
                         <p className="text-sm">
                             <span className="text-gray-500">Mã đơn hàng:</span>{' '}
-                            <span className="font-medium">#{myOrder._id.slice(-8).toUpperCase()}</span>
+                            <span className="font-medium">#{myOrder._id?.slice(-8).toUpperCase() || 'N/A'}</span>
                         </p>
                         <p className="text-sm">
                             <span className="text-gray-500">Ngày đặt:</span>{' '}
-                            <span className="font-medium">{formatDate(myOrder.createdAt)}</span>
+                            <span className="font-medium">{formatDate(myOrder.date || myOrder.createdAt)}</span>
+                        </p>
+                        <p className="text-sm">
+                            <span className="text-gray-500">Phương thức thanh toán:</span>{' '}
+                            <span className="font-medium">
+                                {myOrder.payment_method === 'cod' ? 'Thanh toán khi nhận hàng' : 'Thanh toán online'}
+                            </span>
                         </p>
                         <p className="text-sm">
                             <span className="text-gray-500">Trạng thái thanh toán:</span>{' '}
@@ -196,15 +230,20 @@ const OrderDetails = () => {
                     <div className="space-y-2">
                         <p className="text-sm">
                             <span className="text-gray-500">Người nhận:</span>{' '}
-                            <span className="font-medium">{myOrder.shippingInfo?.name || 'N/A'}</span>
+                            <span className="font-medium">{myOrder.shippingAddress?.name || 'N/A'}</span>
                         </p>
                         <p className="text-sm">
                             <span className="text-gray-500">Số điện thoại:</span>{' '}
-                            <span className="font-medium">{myOrder.shippingInfo?.phoneNumber || 'N/A'}</span>
+                            <span className="font-medium">{myOrder.shippingAddress?.phone || 'N/A'}</span>
                         </p>
                         <p className="text-sm">
                             <span className="text-gray-500">Địa chỉ:</span>{' '}
-                            <span className="font-medium">{myOrder.shippingInfo?.address || 'N/A'}</span>
+                            <span className="font-medium">
+                                {myOrder.shippingAddress?.address 
+                                    ? `${myOrder.shippingAddress.address}${myOrder.shippingAddress.area ? `, ${myOrder.shippingAddress.area}` : ''}${myOrder.shippingAddress.city ? `, ${myOrder.shippingAddress.city}` : ''}${myOrder.shippingAddress.province ? `, ${myOrder.shippingAddress.province}` : ''}`
+                                    : 'N/A'
+                                }
+                            </span>
                         </p>
                     </div>
                 </div>
@@ -215,20 +254,17 @@ const OrderDetails = () => {
                 <h3 className="text-lg font-medium text-gray-800 mb-4">Sản phẩm</h3>
                 <div className="space-y-4">
                     {myOrder.products?.map((product, index) => {
-                        // Tính toán giá sau khi áp dụng giảm giá
-                        const productPrice = product.productId?.price || product.price || 0;
-                        const productDiscount = product.productId?.discount || product.discount || 0;
-                        const discountedPrice = productDiscount > 0 
-                            ? productPrice - Math.floor((productPrice * productDiscount) / 100)
-                            : productPrice;
-                        const totalPrice = discountedPrice * product.quantity;
+                        const productPrice = Number(product.price || 0);
+                        const productDiscount = Number(product.discount || 0);
+                        const discountedPrice = calculateDiscountedPrice(productPrice, productDiscount);
+                        const totalPrice = discountedPrice * (product.quantity || 0);
 
                         return (
                             <div key={index} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
                                 <div className="w-20 h-20 flex-shrink-0">
                                     <img
-                                        src={product.productId?.images?.[0] || product.images?.[0] || '/images/placeholder.png'}
-                                        alt={product.productId?.name || product.name || 'Product image'}
+                                        src={product.productId?.images?.[0] || '/images/placeholder.png'}
+                                        alt={product.productId?.name || 'Product image'}
                                         className="w-full h-full object-contain rounded-md bg-white"
                                         onError={(e) => {
                                             e.target.onerror = null;
@@ -238,22 +274,29 @@ const OrderDetails = () => {
                                 </div>
                                 <div className="flex-grow">
                                     <Link
-                                        to={`/product/details/${product.productId?.slug || product.slug}`}
+                                        to={`/product/details/${product.productId?.slug}`}
                                         className="text-sm font-medium text-gray-800 hover:text-red-500 transition-colors"
                                     >
-                                        {product.productId?.name || product.name}
+                                        {product.productId?.name}
                                     </Link>
                                     <p className="text-sm text-gray-500 mt-1">
-                                        Số lượng: {product.quantity}
+                                        Số lượng: {product.quantity || 0}
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-sm font-medium text-gray-800">
-                                        {formatPrice(discountedPrice)}
-                                    </p>
-                                    <p className="text-sm text-gray-500">
-                                        {formatPrice(totalPrice)}
-                                    </p>
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-sm font-medium text-red-500">
+                                            {formatPrice(discountedPrice)}
+                                        </span>
+                                        {productDiscount > 0 && (
+                                            <span className="text-xs text-gray-500 line-through">
+                                                {formatPrice(productPrice)}
+                                            </span>
+                                        )}
+                                        <span className="text-sm font-medium text-gray-800 mt-1">
+                                            {formatPrice(totalPrice)}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -264,29 +307,34 @@ const OrderDetails = () => {
             {/* Order Summary */}
             <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="text-lg font-medium text-gray-800 mb-4">Tổng kết đơn hàng</h3>
-                <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Tạm tính:</span>
-                        <span className="font-medium">{formatPrice(myOrder.price || 0)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Phí vận chuyển:</span>
-                        <span className="font-medium">{formatPrice(myOrder.shippingPrice || 0)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Giảm giá:</span>
-                        <span className="font-medium text-red-500">-{formatPrice(myOrder.discountPrice || 0)}</span>
-                    </div>
-                    <div className="border-t border-gray-200 my-2"></div>
-                    <div className="flex justify-between text-base font-medium">
-                        <span>Tổng cộng:</span>
-                        <span className="text-red-500">
-                            {formatPrice(
-                                (myOrder.price || 0) + 
-                                (myOrder.shippingPrice || 0) - 
-                                (myOrder.discountPrice || 0)
-                            )}
-                        </span>
+                <div className="border-t pt-4">
+                    <div className="space-y-2">
+                        <div className="flex justify-between">
+                            <p className="text-gray-600">Tạm tính:</p>
+                            <p className="font-medium">{formatPrice(totalItemsPrice)}</p>
+                        </div>
+                        <div className="flex justify-between">
+                            <p className="text-gray-600">Phí vận chuyển:</p>
+                            <p className="font-medium">
+                                {shippingPrice === 0 ? (
+                                    <span className="text-green-600">Miễn phí</span>
+                                ) : (
+                                    formatPrice(shippingPrice)
+                                )}
+                            </p>
+                        </div>
+                        <div className="border-t border-gray-200 my-2"></div>
+                        <div className="flex justify-between text-base font-medium">
+                            <span>Tổng cộng:</span>
+                            <span className="text-red-500">
+                                {formatPrice(totalItemsPrice + shippingPrice)}
+                            </span>
+                        </div>
+                        {totalItemsPrice < 500000 && (
+                            <p className="text-xs text-gray-500 mt-2">
+                                * Đơn hàng trên 500.000đ sẽ được miễn phí vận chuyển
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>

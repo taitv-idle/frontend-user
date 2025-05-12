@@ -41,7 +41,50 @@ const decodeToken = (token) => {
 }
 // End Method 
 
+// Update user info
+export const update_user_info = createAsyncThunk(
+    'auth/updateUserInfo',
+    async (userInfo, { rejectWithValue }) => {
+        try {
+            // Get the token directly for this request
+            const token = localStorage.getItem('customerToken');
+            
+            const { data } = await api.post('/customer/update-profile', userInfo, {
+                withCredentials: true,
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            // Update localStorage with new token if provided
+            if (data.token) {
+                localStorage.setItem('customerToken', data.token);
+            }
+            
+            return data;
+        } catch (error) {
+            if (error.response?.data?.error) {
+                return rejectWithValue(error.response.data.error);
+            } else {
+                return rejectWithValue(error.message || 'Lỗi cập nhật thông tin');
+            }
+        }
+    }
+);
 
+// User logout
+export const user_logout = createAsyncThunk(
+    'auth/user_logout',
+    async (_, { rejectWithValue }) => {
+        try {
+            localStorage.removeItem('customerToken');
+            return { success: true };
+        } catch (error) {
+            return rejectWithValue(error.message);
+        }
+    }
+);
 
 export const authReducer = createSlice({
     name: 'auth',
@@ -90,6 +133,35 @@ export const authReducer = createSlice({
             state.successMessage = payload.message;
             state.loader = false;
             state.userInfo = userInfo
+        })
+
+        // Update user info
+        .addCase(update_user_info.pending, (state) => {
+            state.loader = true;
+            state.errorMessage = '';
+        })
+        .addCase(update_user_info.fulfilled, (state, { payload }) => {
+            state.loader = false;
+            state.userInfo = payload.user;
+            state.successMessage = payload.message;
+        })
+        .addCase(update_user_info.rejected, (state, { payload }) => {
+            state.loader = false;
+            state.errorMessage = payload;
+        })
+
+        // User logout
+        .addCase(user_logout.pending, (state) => {
+            state.loader = true;
+        })
+        .addCase(user_logout.fulfilled, (state) => {
+            state.loader = false;
+            state.userInfo = '';
+            state.successMessage = 'Đăng xuất thành công';
+        })
+        .addCase(user_logout.rejected, (state, { payload }) => {
+            state.loader = false;
+            state.errorMessage = payload;
         })
     }
 })
