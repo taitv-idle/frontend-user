@@ -130,7 +130,36 @@ const Orders = () => {
     };
 
     const redirectToPayment = (order) => {
-        navigate(`/payment/${order._id}`);
+        console.log('Redirecting to payment with order:', order);
+        
+        if (!order || !order._id) {
+            console.error('Invalid order object:', order);
+            toast.error('Không thể thanh toán: Thông tin đơn hàng không hợp lệ');
+            return;
+        }
+        
+        // Make sure we have the shipping address
+        const shippingInfo = order.shippingInfo || order.shippingAddress || {};
+        
+        const orderInfo = {
+            orderId: order._id,
+            totalPrice: order.price || order.totalPrice,
+            shippingInfo: {
+                name: shippingInfo.name || 'Không có thông tin',
+                phone: shippingInfo.phone || '',
+                address: shippingInfo.address || '',
+                area: shippingInfo.area || '',
+                city: shippingInfo.city || '',
+                province: shippingInfo.province || ''
+            },
+            paymentMethod: order.payment_method || order.paymentMethod || 'stripe'
+        };
+        
+        console.log('Navigation state:', { orderInfo });
+        
+        navigate(`/payment`, {
+            state: { orderInfo }
+        });
     };
 
     const filteredOrders = myOrders?.filter(order => {

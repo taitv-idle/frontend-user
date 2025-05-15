@@ -59,6 +59,12 @@ export const get_card_products = createAsyncThunk(
             return response.data;
         } catch (error) {
             console.error('Get cart products error:', error.response?.data || error);
+            
+            // Xử lý lỗi timeout
+            if (error.code === 'ECONNABORTED') {
+                return rejectWithValue({ message: 'Kết nối tới server quá lâu. Vui lòng thử lại sau.' });
+            }
+            
             return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi lấy thông tin giỏ hàng' });
         }
     }
@@ -223,6 +229,11 @@ const cardReducer = createSlice({
                 state.shipping_fee = payload.shipping_fee || 0;
                 state.outofstock_products = payload.outOfStockProduct || [];
                 state.buy_product_item = payload.buy_product_item || 0;
+                state.errorMessage = '';
+            })
+            .addCase(get_card_products.rejected, (state, { payload }) => {
+                state.errorMessage = payload?.message || 'Lỗi khi tải giỏ hàng';
+                // Không reset state.card_products và các thông tin khác để tránh mất dữ liệu đã có
             })
 
             // Delete cart product
@@ -232,13 +243,43 @@ const cardReducer = createSlice({
             })
 
             // Quantity increase
+            .addCase(quantity_inc.pending, (state, { meta }) => {
+                // Optimistic update - tăng số lượng sản phẩm ngay trong UI trước khi hoàn tất API
+                const card_id = meta.arg;
+                state.card_products = state.card_products.map(shop => ({
+                    ...shop,
+                    products: shop.products.map(p => 
+                        p._id === card_id 
+                            ? { ...p, quantity: p.quantity + 1 } 
+                            : p
+                    )
+                }));
+            })
             .addCase(quantity_inc.fulfilled, (state, { payload }) => {
                 state.successMessage = payload.message;
             })
+            .addCase(quantity_inc.rejected, (state, { payload }) => {
+                state.errorMessage = payload?.message || 'Có lỗi xảy ra khi tăng số lượng sản phẩm';
+            })
 
             // Quantity decrease
+            .addCase(quantity_dec.pending, (state, { meta }) => {
+                // Optimistic update - giảm số lượng sản phẩm ngay trong UI trước khi hoàn tất API
+                const card_id = meta.arg;
+                state.card_products = state.card_products.map(shop => ({
+                    ...shop,
+                    products: shop.products.map(p => 
+                        p._id === card_id && p.quantity > 1
+                            ? { ...p, quantity: p.quantity - 1 } 
+                            : p
+                    )
+                }));
+            })
             .addCase(quantity_dec.fulfilled, (state, { payload }) => {
                 state.successMessage = payload.message;
+            })
+            .addCase(quantity_dec.rejected, (state, { payload }) => {
+                state.errorMessage = payload?.message || 'Có lỗi xảy ra khi giảm số lượng sản phẩm';
             })
 
             // Wishlist actions

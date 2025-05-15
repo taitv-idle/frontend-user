@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { get_products } from '../store/reducers/homeReducer';
 import Header from '../components/Header';
@@ -12,14 +12,32 @@ import LoadingSkeleton from '../components/HomeSkeleton';
 import AIChatButton from '../components/AIChatButton';
 import AIChatModal from '../components/AIChatModal';
 
+// Lazy load một số component không quan trọng
+const LazyNewsletter = lazy(() => import('../components/Newsletter'));
+
 const Home = () => {
     const dispatch = useDispatch();
     const { products, latest_product, topRated_product, discount_product, loading } = useSelector(state => state.home);
     const [chatOpen, setChatOpen] = useState(false);
     const [currentChatType, setCurrentChatType] = useState('openai');
+    const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
-        dispatch(get_products());
+        // Bắt đầu tải dữ liệu từ API
+        const fetchData = async () => {
+            await dispatch(get_products());
+            // Đánh dấu là đã tải xong dữ liệu
+            setIsLoaded(true);
+        };
+        
+        fetchData();
+        
+        // Prefetch các dữ liệu khác sau khi đã render trang chủ
+        const timer = setTimeout(() => {
+            // Có thể thêm các API calls khác ở đây
+        }, 1000);
+        
+        return () => clearTimeout(timer);
     }, [dispatch]);
 
     const handleOpenChat = () => {
@@ -33,8 +51,6 @@ const Home = () => {
     const handleChatTypeChange = (type) => {
         setCurrentChatType(type);
     };
-
-    if (loading) return <LoadingSkeleton />;
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50">
@@ -66,36 +82,85 @@ const Home = () => {
                             Sản Phẩm Nổi Bật
                             <span className="block w-24 h-1 bg-gradient-to-r from-[#ff6b6b] to-[#ffa07a] mx-auto rounded-full mt-2"></span>
                         </h2>
-                        <FeatureProducts products={products} />
+                        {loading ? (
+                            <LoadingSkeleton />
+                        ) : (
+                            <FeatureProducts products={products} />
+                        )}
                     </div>
                 </section>
 
-                {/* Products Grid Section */}
+                {/* Products Grid Section - Hiển thị skeleton loading trong khi đợi dữ liệu */}
                 <section className="py-12 bg-white">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                                <Products
-                                    title="Sản Phẩm Mới"
-                                    products={latest_product}
-                                    bgColor="bg-gradient-to-br from-blue-50 to-blue-100"
-                                />
+                                {loading ? (
+                                    <div className="p-4 animate-pulse">
+                                        <div className="h-6 bg-gray-200 rounded w-1/2 mb-6"></div>
+                                        {[1, 2, 3, 4].map(i => (
+                                            <div key={i} className="flex items-center gap-3 mb-4">
+                                                <div className="bg-gray-200 w-20 h-20 rounded"></div>
+                                                <div className="flex-1">
+                                                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                                                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <Products
+                                        title="Sản Phẩm Mới"
+                                        products={latest_product}
+                                        bgColor="bg-gradient-to-br from-blue-50 to-blue-100"
+                                    />
+                                )}
                             </div>
 
                             <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                                <Products
-                                    title="Bán Chạy Nhất"
-                                    products={topRated_product}
-                                    bgColor="bg-gradient-to-br from-rose-50 to-rose-100"
-                                />
+                                {loading ? (
+                                    <div className="p-4 animate-pulse">
+                                        <div className="h-6 bg-gray-200 rounded w-1/2 mb-6"></div>
+                                        {[1, 2, 3, 4].map(i => (
+                                            <div key={i} className="flex items-center gap-3 mb-4">
+                                                <div className="bg-gray-200 w-20 h-20 rounded"></div>
+                                                <div className="flex-1">
+                                                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                                                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <Products
+                                        title="Bán Chạy Nhất"
+                                        products={topRated_product}
+                                        bgColor="bg-gradient-to-br from-rose-50 to-rose-100"
+                                    />
+                                )}
                             </div>
 
                             <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                                <Products
-                                    title="Khuyến Mãi Hot"
-                                    products={discount_product}
-                                    bgColor="bg-gradient-to-br from-emerald-50 to-emerald-100"
-                                />
+                                {loading ? (
+                                    <div className="p-4 animate-pulse">
+                                        <div className="h-6 bg-gray-200 rounded w-1/2 mb-6"></div>
+                                        {[1, 2, 3, 4].map(i => (
+                                            <div key={i} className="flex items-center gap-3 mb-4">
+                                                <div className="bg-gray-200 w-20 h-20 rounded"></div>
+                                                <div className="flex-1">
+                                                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                                                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <Products
+                                        title="Khuyến Mãi Hot"
+                                        products={discount_product}
+                                        bgColor="bg-gradient-to-br from-emerald-50 to-emerald-100"
+                                    />
+                                )}
                             </div>
                         </div>
                     </div>
@@ -148,29 +213,12 @@ const Home = () => {
                     </div>
                 </section>
 
-                {/* Newsletter Section */}
-                <section className="py-12 bg-gradient-to-r from-blue-600 to-indigo-600">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                        <h2 className="text-2xl font-bold text-white mb-3">
-                            Đăng Ký Nhận Thông Tin
-                        </h2>
-                        <p className="text-blue-100 mb-6 max-w-2xl mx-auto text-sm">
-                            Nhận thông tin về sản phẩm mới và khuyến mãi đặc biệt. Chúng tôi sẽ không gửi spam.
-                        </p>
-                        <div className="max-w-md mx-auto">
-                            <div className="flex gap-3">
-                                <input
-                                    type="email"
-                                    placeholder="Nhập email của bạn"
-                                    className="flex-1 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 text-sm"
-                                />
-                                <button className="px-5 py-2 bg-white text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors text-sm">
-                                    Đăng Ký
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
+                {/* Newsletter Section - Lazy loaded để không ảnh hưởng tốc độ tải ban đầu */}
+                {isLoaded && (
+                    <Suspense fallback={<div className="py-12 bg-gradient-to-r from-blue-600 to-indigo-600 animate-pulse h-[200px]"></div>}>
+                        <LazyNewsletter />
+                    </Suspense>
+                )}
             </main>
 
             <Footer />

@@ -25,13 +25,14 @@ export const get_category = createAsyncThunk(
 );
 export const get_products = createAsyncThunk(
     'product/get_products',
-    async(_, { fulfillWithValue }) => {
+    async(_, { fulfillWithValue, rejectWithValue }) => {
         try {
             const {data} = await api.get('/home/get-products')
-             console.log(data)
+            console.log(data)
             return fulfillWithValue(data)
         } catch (error) {
-            console.log(error.respone)
+            console.log(error.response?.data || error.message)
+            return rejectWithValue(error.response?.data || { message: 'Lỗi khi tải sản phẩm' })
         }
     }
 )
@@ -40,13 +41,14 @@ export const get_products = createAsyncThunk(
 
 export const price_range_product = createAsyncThunk(
     'product/price_range_product',
-    async(_, { fulfillWithValue }) => {
+    async(_, { fulfillWithValue, rejectWithValue }) => {
         try {
             const {data} = await api.get('/home/price-range-latest-product')
-             console.log(data)
+            console.log(data)
             return fulfillWithValue(data)
         } catch (error) {
-            console.log(error.respone)
+            console.log(error.response?.data || error.message)
+            return rejectWithValue(error.response?.data || { message: 'Lỗi khi tải thông tin giá sản phẩm' })
         }
     }
 )
@@ -54,13 +56,13 @@ export const price_range_product = createAsyncThunk(
 
 export const query_products = createAsyncThunk(
     'product/query_products',
-    async(query , { fulfillWithValue }) => {
+    async(query, { fulfillWithValue, rejectWithValue }) => {
         try {
             const {data} = await api.get(`/home/query-products?category=${query.category}&&rating=${query.rating}&&lowPrice=${query.low}&&highPrice=${query.high}&&sortPrice=${query.sortPrice}&&pageNumber=${query.pageNumber}&&searchValue=${query.searchValue ? query.searchValue : ''} `)
-            //  console.log(data)
             return fulfillWithValue(data)
         } catch (error) {
-            console.log(error.respone)
+            console.log(error.response?.data || error.message)
+            return rejectWithValue(error.response?.data || { message: 'Lỗi khi tìm kiếm sản phẩm' })
         }
     }
 )
@@ -85,13 +87,17 @@ export const product_details = createAsyncThunk(
 
 export const customer_review = createAsyncThunk(
     'review/customer_review',
-    async(info, { fulfillWithValue }) => {
+    async(info, { fulfillWithValue, rejectWithValue }) => {
         try {
-            const {data} = await api.post('/home/customer/submit-review',info)
-            //  console.log(data)
-            return fulfillWithValue(data)
+            if (!info || !info.rating) {
+                return rejectWithValue({ message: 'Vui lòng nhập đầy đủ thông tin đánh giá' });
+            }
+            
+            const {data} = await api.post('/home/customer/submit-review', info);
+            return fulfillWithValue(data);
         } catch (error) {
-            console.log(error.respone)
+            console.log(error.response?.data || error.message);
+            return rejectWithValue(error.response?.data || { message: 'Lỗi khi gửi đánh giá' });
         }
     }
 )
@@ -100,13 +106,13 @@ export const customer_review = createAsyncThunk(
 
 export const get_reviews = createAsyncThunk(
     'review/get_reviews',
-    async({productId, pageNumber}, { fulfillWithValue }) => {
+    async({productId, pageNumber}, { fulfillWithValue, rejectWithValue }) => {
         try {
             const {data} = await api.get(`/home/customer/get-reviews/${productId}?pageNo=${pageNumber}`)
-            //  console.log(data)
             return fulfillWithValue(data)
         } catch (error) {
-            console.log(error.respone)
+            console.log(error.response?.data || error.message)
+            return rejectWithValue(error.response?.data || { message: 'Lỗi khi tải đánh giá' })
         }
     }
 )
@@ -115,13 +121,13 @@ export const get_reviews = createAsyncThunk(
 
 export const get_banners = createAsyncThunk(
     'banner/get_banners',
-    async( _ , { fulfillWithValue }) => {
+    async( _ , { fulfillWithValue, rejectWithValue }) => {
         try {
             const {data} = await api.get(`/banners`)
-            //  console.log(data)
             return fulfillWithValue(data)
         } catch (error) {
-            console.log(error.respone)
+            console.log(error.response?.data || error.message)
+            return rejectWithValue(error.response?.data || { message: 'Lỗi khi tải banner' })
         }
     }
 )
@@ -172,21 +178,54 @@ export const homeReducer = createSlice({
             state.categorys = []; // Đặt lại giá trị mặc định
         })
         .addCase(get_products.fulfilled, (state, { payload }) => {
-            state.products = payload.products;
-            state.latest_product = payload.latest_product;
-            state.topRated_product = payload.topRated_product;
-            state.discount_product = payload.discount_product;
+            if (!payload) {
+                state.products = [];
+                state.latest_product = [];
+                state.topRated_product = [];
+                state.discount_product = [];
+                return;
+            }
+            state.products = payload.products || [];
+            state.latest_product = payload.latest_product || [];
+            state.topRated_product = payload.topRated_product || [];
+            state.discount_product = payload.discount_product || [];
+        })
+        .addCase(get_products.rejected, (state, { payload }) => {
+            state.errorMessage = payload?.message || 'Lỗi khi tải sản phẩm';
+            state.products = [];
+            state.latest_product = [];
+            state.topRated_product = [];
+            state.discount_product = [];
         })
         .addCase(price_range_product.fulfilled, (state, { payload }) => { 
-            state.latest_product = payload.latest_product;
-            state.priceRange = payload.priceRange; 
+            if (!payload) {
+                state.latest_product = [];
+                state.priceRange = { low: 0, high: 100 };
+                return;
+            }
+            state.latest_product = payload.latest_product || [];
+            state.priceRange = payload.priceRange || { low: 0, high: 100 }; 
+        })
+        .addCase(price_range_product.rejected, (state, { payload }) => {
+            state.errorMessage = payload?.message || 'Lỗi khi tải phạm vi giá';
+            state.latest_product = [];
         })
         .addCase(query_products.fulfilled, (state, { payload }) => { 
-            state.products = payload.products;
-            state.totalProduct = payload.totalProduct;
-            state.parPage = payload.parPage; 
+            if (!payload) {
+                state.products = [];
+                state.totalProduct = 0;
+                state.parPage = 12;
+                return;
+            }
+            state.products = payload.products || [];
+            state.totalProduct = payload.totalProduct || 0;
+            state.parPage = payload.parPage || 12; 
         })
-
+        .addCase(query_products.rejected, (state, { payload }) => {
+            state.errorMessage = payload?.message || 'Lỗi khi tìm kiếm sản phẩm';
+            state.products = [];
+            state.totalProduct = 0;
+        })
         .addCase(product_details.fulfilled, (state, { payload }) => { 
             if (payload?.product) {
                 state.product = payload.product;
@@ -206,21 +245,40 @@ export const homeReducer = createSlice({
             state.moreProducts = [];
             state.errorMessage = payload?.message || "Không tìm thấy sản phẩm";
         })
-
         .addCase(customer_review.fulfilled, (state, { payload }) => {
             state.successMessage = payload.message;
         })
-
+        .addCase(customer_review.rejected, (state, { payload }) => {
+            state.errorMessage = payload?.message || 'Lỗi khi gửi đánh giá';
+        })
         .addCase(get_reviews.fulfilled, (state, { payload }) => {
-            state.reviews = payload.reviews;
-            state.totalReview = payload.totalReview;
-            state.rating_review = payload.rating_review;
+            if (!payload) {
+                state.reviews = [];
+                state.totalReview = 0;
+                state.rating_review = [];
+                return;
+            }
+            state.reviews = payload.reviews || [];
+            state.totalReview = payload.totalReview || 0;
+            state.rating_review = payload.rating_review || [];
         })
-
+        .addCase(get_reviews.rejected, (state, { payload }) => {
+            state.errorMessage = payload?.message || 'Lỗi khi tải đánh giá';
+            state.reviews = [];
+            state.totalReview = 0;
+            state.rating_review = [];
+        })
         .addCase(get_banners.fulfilled, (state, { payload }) => {
-            state.banners = payload.banners; 
+            if (!payload) {
+                state.banners = [];
+                return;
+            }
+            state.banners = payload.banners || []; 
         })
-
+        .addCase(get_banners.rejected, (state, { payload }) => {
+            state.errorMessage = payload?.message || 'Lỗi khi tải banner';
+            state.banners = [];
+        })
     }
 })
 export const {messageClear} = homeReducer.actions

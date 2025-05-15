@@ -291,7 +291,7 @@ const Shipping = () => {
             };
 
             // Tính toán giá
-            const shippingPrice = isFreeShipping ? 0 : (shippingFee || shipping_fee);
+            const shippingPrice = isFreeShipping ? 0 : (shippingFee || shipping_fee || 40000);
             const totalAmount = price + shippingPrice;
 
             // Chuẩn bị danh sách sản phẩm
@@ -322,17 +322,37 @@ const Shipping = () => {
             console.log('Placing order with data:', JSON.stringify(orderData, null, 2));
 
             // Gửi đơn hàng
-            const result = await dispatch(place_order(orderData));
+            const result = await dispatch(place_order(orderData)).unwrap();
 
             // Kiểm tra kết quả
-            if (result.error) {
-                const errorMessage = typeof result.error === 'object' ? result.error.message : result.error;
-                toast.error(errorMessage || 'Có lỗi xảy ra khi tạo đơn hàng');
+            if (!result || !result.orderId) {
+                toast.error('Có lỗi xảy ra khi tạo đơn hàng');
                 return;
             }
 
-            // Nếu thành công, hiển thị thông báo
-            toast.success('Đặt hàng thành công!');
+            // Lưu orderId vào localStorage để sử dụng sau khi thanh toán
+            localStorage.setItem('latestOrderId', result.orderId);
+
+            // Nếu là thanh toán COD, điều hướng đến trang xác nhận
+            if (paymentMethod === 'cod') {
+                toast.success('Đặt hàng COD thành công!');
+                navigate('/order-confirmation', {
+                    state: result
+                });
+            } else {
+                // Nếu là thanh toán Stripe, điều hướng đến trang thanh toán
+                toast.success('Đặt hàng thành công! Đang chuyển đến trang thanh toán...');
+                navigate('/payment', {
+                    state: {
+                        orderInfo: {
+                            orderId: result.orderId,
+                            totalPrice: totalAmount,
+                            shippingInfo,
+                            paymentMethod: 'stripe'
+                        }
+                    }
+                });
+            }
 
         } catch (err) {
             console.error('Order error:', err);

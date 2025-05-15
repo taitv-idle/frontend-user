@@ -150,22 +150,34 @@ export const confirm_cod_payment = createAsyncThunk(
     'order/confirm_cod',
     async (orderId, { rejectWithValue }) => {
         try {
-            const { data } = await api.patch(`/home/order/confirm-cod/${orderId}`);
+            console.log('Confirming COD payment for order:', orderId);
+            const { data } = await api.get(`/order/confirm/${orderId}`);
+            console.log('COD payment confirmation response:', data);
             return data;
         } catch (error) {
-            return rejectWithValue(error.response.data);
+            console.error('COD payment confirmation error:', error);
+            return rejectWithValue(error.response?.data || {
+                message: 'Xác nhận COD thất bại'
+            });
         }
     }
 );
 
 export const confirm_stripe_payment = createAsyncThunk(
     'order/confirm_stripe',
-    async (orderId, { rejectWithValue }) => {
+    async ({ orderId, paymentIntentId }, { rejectWithValue }) => {
         try {
-            const { data } = await api.patch(`/home/order/confirm-stripe/${orderId}`);
+            console.log('Confirming Stripe payment for order:', orderId, 'with payment intent ID:', paymentIntentId);
+            const { data } = await api.post(`/order/confirm-client-payment/${orderId}`, {
+                paymentIntentId
+            });
+            console.log('Stripe payment confirmation response:', data);
             return data;
         } catch (error) {
-            return rejectWithValue(error.response.data);
+            console.error('Stripe payment confirmation error:', error);
+            return rejectWithValue(error.response?.data || {
+                message: 'Xác nhận thanh toán thất bại'
+            });
         }
     }
 );
@@ -336,15 +348,31 @@ export const update_payment_status = createAsyncThunk(
 
 export const create_payment_intent = createAsyncThunk(
     'order/create_payment_intent',
-    async ({ price, orderId }, { rejectWithValue }) => {
+    async ({ price, orderId, existingPaymentIntentId }, { rejectWithValue }) => {
         try {
-            const { data } = await api.post('/home/order/create-payment-intent', {
+            console.log('Creating payment intent with price:', price, 'orderId:', orderId, 'existingPaymentIntentId:', existingPaymentIntentId || 'none');
+            const { data } = await api.post('/order/create-payment-intent', {
                 price,
-                orderId
+                orderId,
+                existingPaymentIntentId
             });
+            console.log('Payment intent created:', data);
             return data;
         } catch (error) {
-            return rejectWithValue(error.response.data);
+            console.error('Payment intent error:', error);
+            
+            // Kiểm tra nếu lỗi là do payment intent hết hạn
+            if (error.response?.data?.code === 'resource_missing' || 
+                (error.message && error.message.includes('No such payment_intent'))) {
+                return rejectWithValue({ 
+                    message: 'Phiên thanh toán đã hết hạn. Đang tạo phiên thanh toán mới...',
+                    code: 'payment_intent_expired'
+                });
+            }
+            
+            return rejectWithValue(error.response?.data || { 
+                message: 'Lỗi khi tạo yêu cầu thanh toán' 
+            });
         }
     }
 );
