@@ -34,9 +34,6 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
   // Add a new state to track if chat is ready
   const [isChatReady, setIsChatReady] = useState(false);
 
-  // Add new state for session error
-  const [sessionError, setSessionError] = useState(null);
-
   // Define type labels first to avoid usage-before-definition errors
   const getChatTypeLabel = useCallback((type) => {
     switch (type) {
@@ -142,7 +139,7 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
       }
       
       // For other errors, show error message
-      setSessionError(`Không thể kết thúc phiên chat. Vui lòng thử lại sau.`);
+      setError(`Không thể kết thúc phiên chat. Vui lòng thử lại sau.`);
       return Promise.reject(error);
     }
   }, [sessionIds, chatServices, chatType, userInfo]);
@@ -271,7 +268,7 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
     }
   }, [chatType, chatServices, getChatTypeLabel, networkStatus, userInfo]);
 
-  // Single clean effect for chat initialization
+  // Update the useEffect that handles chat initialization
   useEffect(() => {
     // Only initialize when modal is open and not already initialized
     if (isOpen && !initializedRef.current && !manualChatChange && !initializingRef.current) {
@@ -349,7 +346,7 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
         endChat();
       }
     };
-  }, [isOpen, sessionIds, endChat]);
+  }, [isOpen, sessionIds, endChat, chatType]);
 
   // Reset initialization when chat type changes
   useEffect(() => {
@@ -422,7 +419,6 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
     
     setLoading(true);
     setError(null);
-    setSessionError(null);
     setManualChatChange(true);
     setIsChatReady(false);
     
@@ -477,7 +473,7 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
         }
       } catch (error) {
         console.error('Error initializing new chat session:', error);
-        setSessionError('Không thể khởi tạo phiên chat mới. Vui lòng thử lại sau.');
+        setError('Không thể khởi tạo phiên chat mới. Vui lòng thử lại sau.');
         // Add a default welcome message
         setMessages([{ 
           role: 'assistant', 
@@ -665,80 +661,10 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
     }
   }, [sessionIds, chatType, userInfo, getChatTypeLabel]);
 
-  // Simplified recoverSession function for recovering from errors
-  const recoverSession = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Reset all state to trigger initialization
-      initializedRef.current = false;
-      initializingRef.current = false;
-      initAttempts.current = 0;
-      
-      // Clear any previous error
-      setError(null);
-      
-      // Force a new initialization on the next render cycle
-      setTimeout(() => {
-        if (shouldUsePublicChat()) {
-          // Use public chat for unauthenticated OpenAI
-          const publicServices = getChatServices('openai', false);
-          initializingRef.current = true;
-          setLoading(true);
-          
-          publicServices.initChat()
-            .then(data => {
-              if (data.success && data.chat) {
-                setSessionIds(prev => ({
-                  ...prev,
-                  openai: data.chat.sessionId
-                }));
-                
-                if (Array.isArray(data.chat.messages)) {
-                  const initialMessages = data.chat.messages.map(msg => ({
-                    role: msg.role,
-                    content: msg.content,
-                    model: msg.model
-                  }));
-                  
-                  setMessages(initialMessages);
-                }
-                
-                initializedRef.current = true;
-              }
-            })
-            .catch(error => {
-              console.error('Error in recover:', error);
-              initializedRef.current = true; // Prevent loops
-              
-              // Add a default message
-              setMessages([{ 
-                role: 'assistant', 
-                content: `Xin chào! Tôi là trợ lý AI. Tôi có thể giúp gì cho bạn?` 
-              }]);
-            })
-            .finally(() => {
-              setLoading(false);
-              initializingRef.current = false;
-            });
-        } else {
-          // For other chat types
-          initChat();
-        }
-      }, 100);
-    } catch (error) {
-      console.error('Error recovering session:', error);
-      setError('Không thể khôi phục phiên chat. Tạo phiên mới.');
-      setLoading(false);
-    }
-  }, [initChat, shouldUsePublicChat]);
-
   // Add recreateSession function
   const recreateSession = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setSessionError(null);
     setIsChatReady(false);
     
     try {
