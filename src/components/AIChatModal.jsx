@@ -10,20 +10,32 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sessionId, setSessionId] = useState(null);
   const [error, setError] = useState(null);
   const [chatType, setChatType] = useState('openai'); // 'openai', 'free', 'gemini'
   const [currentModel, setCurrentModel] = useState('gemini-assistant'); // Default Gemini model
   const [manualChatChange, setManualChatChange] = useState(false);
   const [networkStatus, setNetworkStatus] = useState('online');
-  const [isMaximized, setIsMaximized] = useState(false); // New state for maximizing chat
-  
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  // Session management
+  const [sessionIds, setSessionIds] = useState({
+    openai: null,
+    free: null,
+    gemini: null
+  });
+
   // User refs for more stable tracking
   const messagesEndRef = useRef(null);
   const initializedRef = useRef(false);
   const initializingRef = useRef(false);
   const initAttempts = useRef(0);
   const { userInfo } = useSelector(state => state.auth);
+
+  // Add a new state to track if chat is ready
+  const [isChatReady, setIsChatReady] = useState(false);
+
+  // Add new state for session error
+  const [sessionError, setSessionError] = useState(null);
 
   // Define type labels first to avoid usage-before-definition errors
   const getChatTypeLabel = useCallback((type) => {
@@ -91,13 +103,14 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
 
   // Core functions wrapped in useCallback to prevent recreation on render
   const endChat = useCallback(async () => {
-    if (!sessionId) return Promise.resolve();
+    const currentSessionId = sessionIds[chatType];
+    if (!currentSessionId) return Promise.resolve();
     
     const currentServices = chatServices();
     if (!currentServices.endChat) return Promise.resolve();
     
     try {
-      console.log(`Ending session for ${chatType}:`, sessionId);
+      console.log(`Ending session for ${chatType}:`, currentSessionId);
       
       // For OpenAI chat, if user is not authenticated, ensure we're using public chat services
       let serviceToUse = currentServices;
@@ -105,20 +118,34 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
         serviceToUse = getChatServices('openai', false);
       }
       
-      const response = await serviceToUse.endChat(sessionId);
+      const response = await serviceToUse.endChat(currentSessionId);
       console.log("End chat response:", response);
-      setSessionId(null);
+      
+      // Update sessionId for current chat type
+      setSessionIds(prev => ({
+        ...prev,
+        [chatType]: null
+      }));
       setMessages([]);
       return response;
     } catch (error) {
       console.error(`Error ending ${chatType} chat:`, error);
       
-      // Even if there's an error, reset the state
-      setSessionId(null);
-      setMessages([]);
-      return Promise.resolve();
+      // If session not found, just clear the state
+      if (error.error === 'Không tìm thấy phiên chat' || error.response?.status === 404) {
+        setSessionIds(prev => ({
+          ...prev,
+          [chatType]: null
+        }));
+        setMessages([]);
+        return Promise.resolve();
+      }
+      
+      // For other errors, show error message
+      setSessionError(`Không thể kết thúc phiên chat. Vui lòng thử lại sau.`);
+      return Promise.reject(error);
     }
-  }, [sessionId, chatServices, chatType, userInfo]);
+  }, [sessionIds, chatServices, chatType, userInfo]);
 
   const initChat = useCallback(async () => {
     // Emergency guard against infinite loops
@@ -139,6 +166,7 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
     
     setLoading(true);
     setError(null);
+    setIsChatReady(false);
     
     try {
       const currentServices = chatServices();
@@ -147,7 +175,11 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
       console.log(`Init ${chatType} chat response:`, data);
       
       if (data.success && data.chat) {
-        setSessionId(data.chat.sessionId);
+        // Update sessionId for current chat type
+        setSessionIds(prev => ({
+          ...prev,
+          [chatType]: data.chat.sessionId
+        }));
         
         // Use the initial messages from the backend response
         if (Array.isArray(data.chat.messages)) {
@@ -166,8 +198,9 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
             setCurrentModel(initialMessages[0].model);
           }
           
-          // Mark as initialized
+          // Mark as initialized and ready
           initializedRef.current = true;
+          setIsChatReady(true);
         } else {
           console.error('Expected messages array but got:', data.chat.messages);
           throw new Error('Invalid messages format');
@@ -199,8 +232,12 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
             const publicData = await publicServices.initChat();
             
             if (publicData.success && publicData.chat) {
-              setSessionId(publicData.chat.sessionId);
+              setSessionIds(prev => ({
+                ...prev,
+                openai: publicData.chat.sessionId
+              }));
               initializedRef.current = true;
+              setIsChatReady(true);
             }
           } catch (publicError) {
             console.error("Error initializing public chat:", publicError);
@@ -226,6 +263,7 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
         
         // Mark as initialized anyway to prevent loops
         initializedRef.current = true;
+        setIsChatReady(true);
       }
     } finally {
       setLoading(false);
@@ -250,7 +288,10 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
         publicServices.initChat()
           .then(data => {
             if (data.success && data.chat) {
-              setSessionId(data.chat.sessionId);
+              setSessionIds(prev => ({
+                ...prev,
+                openai: data.chat.sessionId
+              }));
               
               if (Array.isArray(data.chat.messages)) {
                 const initialMessages = data.chat.messages.map(msg => ({
@@ -290,7 +331,7 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
       initializingRef.current = false;
       initAttempts.current = 0;
     }
-  }, [isOpen, shouldUsePublicChat, initChat, manualChatChange]);
+  }, [isOpen, shouldUsePublicChat, initChat, manualChatChange, chatType]);
   
   // Reset manual change flag
   useEffect(() => {
@@ -304,11 +345,11 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
   // Cleanup when component unmounts or modal closes
   useEffect(() => {
     return () => {
-      if (sessionId && !isOpen) {
+      if (sessionIds[chatType] && !isOpen) {
         endChat();
       }
     };
-  }, [isOpen, sessionId, endChat]);
+  }, [isOpen, sessionIds, endChat]);
 
   // Reset initialization when chat type changes
   useEffect(() => {
@@ -320,7 +361,10 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
   const resetChat = useCallback(() => {
     // Clear state
     setMessages([]);
-    setSessionId(null);
+    setSessionIds(prev => ({
+      ...prev,
+      [chatType]: null
+    }));
     // Reset initialization flags
     initializedRef.current = false;
     initializingRef.current = false;
@@ -339,7 +383,10 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
           publicServices.initChat()
             .then(data => {
               if (data.success && data.chat) {
-                setSessionId(data.chat.sessionId);
+                setSessionIds(prev => ({
+                  ...prev,
+                  openai: data.chat.sessionId
+                }));
                 
                 if (Array.isArray(data.chat.messages)) {
                   const initialMessages = data.chat.messages.map(msg => ({
@@ -368,25 +415,33 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
         }
       }, 100);
     });
-  }, [endChat, initChat, shouldUsePublicChat]);
+  }, [endChat, initChat, shouldUsePublicChat, chatType]);
 
   const changeChatType = useCallback(async (type) => {
     if (type === chatType) return;
     
     setLoading(true);
     setError(null);
+    setSessionError(null);
     setManualChatChange(true);
+    setIsChatReady(false);
     
     try {
       // End current chat session if exists
-      if (sessionId) {
-        await endChat();
+      const currentSessionId = sessionIds[chatType];
+      if (currentSessionId) {
+        try {
+          const currentServices = chatServices();
+          await currentServices.endChat(currentSessionId);
+        } catch (error) {
+          console.log('Error ending previous chat session:', error);
+          // Continue with the change even if ending fails
+        }
       }
       
       // Change type
       setChatType(type);
       setMessages([]);
-      setSessionId(null);
       
       // Reset initialization flags
       initializedRef.current = false;
@@ -398,22 +453,58 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
         onChatTypeChange(type);
       }
       
-      // Wait a short time before attempting to initialize with the new chat type
+      // Initialize new chat session immediately
+      const newServices = getChatServices(type, !!userInfo);
+      try {
+        const data = await newServices.initChat();
+        if (data.success && data.chat) {
+          // Update sessionId for new chat type
+          setSessionIds(prev => ({
+            ...prev,
+            [type]: data.chat.sessionId
+          }));
+          
+          if (Array.isArray(data.chat.messages)) {
+            const initialMessages = data.chat.messages.map(msg => ({
+              role: msg.role,
+              content: msg.content,
+              model: msg.model
+            }));
+            setMessages(initialMessages);
+          }
+          initializedRef.current = true;
+          setIsChatReady(true);
+        }
+      } catch (error) {
+        console.error('Error initializing new chat session:', error);
+        setSessionError('Không thể khởi tạo phiên chat mới. Vui lòng thử lại sau.');
+        // Add a default welcome message
+        setMessages([{ 
+          role: 'assistant', 
+          content: `Xin chào! Tôi là trợ lý ${getChatTypeLabel(type)}. Tôi có thể giúp gì cho bạn?` 
+        }]);
+        initializedRef.current = true;
+        setIsChatReady(true);
+      }
+      
+      // Reset the manual change flag after a short delay
       setTimeout(() => {
-        setManualChatChange(false); // Reset the manual change flag
+        setManualChatChange(false);
+        setLoading(false);
       }, 100);
     } catch (error) {
       console.error(`Error changing chat type to ${type}:`, error);
       setError(`Không thể chuyển sang chế độ trò chuyện ${getChatTypeLabel(type)}. Vui lòng thử lại sau.`);
       setLoading(false);
       setManualChatChange(false);
+      setIsChatReady(true);
     }
-  }, [chatType, sessionId, endChat, onChatTypeChange, getChatTypeLabel]);
+  }, [chatType, sessionIds, chatServices, onChatTypeChange, getChatTypeLabel, userInfo]);
 
   const sendMessage = useCallback(async (e) => {
     e.preventDefault();
     
-    if (!newMessage.trim() || !sessionId) return;
+    if (!newMessage.trim() || !isChatReady) return;
     
     const userMessage = { role: 'user', content: newMessage.trim() };
     setMessages(prev => [...prev, userMessage]);
@@ -424,7 +515,7 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
     const messageToSend = newMessage.trim();
     console.log(`Sending message to ${chatType}:`, { 
       message: messageToSend, 
-      sessionId
+      sessionId: sessionIds[chatType]
     });
     
     try {
@@ -434,7 +525,7 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
         currentChatServices = getChatServices('openai', false);
       }
       
-      const data = await currentChatServices.sendMessage(messageToSend, sessionId);
+      const data = await currentChatServices.sendMessage(messageToSend, sessionIds[chatType]);
       
       console.log(`${chatType} response:`, data);
       
@@ -462,6 +553,53 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
     } catch (error) {
       console.error(`Error sending message to ${chatType}:`, error);
       
+      // Check for session expired error
+      if (error.error === 'Không tìm thấy phiên chat hoặc phiên đã hết hạn' ||
+          error.response?.status === 404) {
+        // Try to reinitialize the chat session
+        try {
+          console.log('Session expired, attempting to recreate session...');
+          
+          // Reset initialization flags
+          initializedRef.current = false;
+          initializingRef.current = false;
+          initAttempts.current = 0;
+          
+          // Initialize new session
+          const currentServices = getChatServices(chatType, !!userInfo);
+          const initData = await currentServices.initChat();
+          
+          if (initData.success && initData.chat) {
+            // Update sessionId for current chat type
+            setSessionIds(prev => ({
+              ...prev,
+              [chatType]: initData.chat.sessionId
+            }));
+            
+            // Retry sending the message with new session
+            const retryData = await currentServices.sendMessage(messageToSend, initData.chat.sessionId);
+            
+            if (retryData.success && retryData.message) {
+              const responseMessage = { 
+                role: 'assistant', 
+                content: retryData.message 
+              };
+              
+              if (chatType === 'gemini' && retryData.model) {
+                responseMessage.model = retryData.model;
+                setCurrentModel(retryData.model);
+              }
+              
+              setMessages(prev => [...prev, responseMessage]);
+              return;
+            }
+          }
+        } catch (retryError) {
+          console.error('Error retrying message send:', retryError);
+          setError('Phiên chat đã hết hạn. Vui lòng thử lại sau.');
+        }
+      }
+      
       // Check for authentication error
       if (error.error === 'Please Login First' || 
           (error.response?.status === 409 && error.response?.data?.error === 'Please Login First')) {
@@ -477,10 +615,10 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
     } finally {
       setLoading(false);
     }
-  }, [newMessage, sessionId, chatType, userInfo, getChatTypeLabel]);
+  }, [newMessage, chatType, sessionIds, userInfo, getChatTypeLabel, isChatReady]);
 
   const fetchChatHistory = useCallback(async () => {
-    if (!sessionId) return;
+    if (!sessionIds[chatType]) return;
     
     const services = getChatServices(chatType, !!userInfo);
     if (!services.getChatHistory) return;
@@ -493,7 +631,7 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
         currentChatServices = getChatServices('openai', false);
       }
       
-      const data = await currentChatServices.getChatHistory(sessionId);
+      const data = await currentChatServices.getChatHistory(sessionIds[chatType]);
       if (data.success && data.chat && Array.isArray(data.chat.messages)) {
         setMessages(data.chat.messages.map(msg => ({
           role: msg.role,
@@ -525,7 +663,7 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
     } finally {
       setLoading(false);
     }
-  }, [sessionId, chatType, userInfo, getChatTypeLabel]);
+  }, [sessionIds, chatType, userInfo, getChatTypeLabel]);
 
   // Simplified recoverSession function for recovering from errors
   const recoverSession = useCallback(async () => {
@@ -552,7 +690,10 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
           publicServices.initChat()
             .then(data => {
               if (data.success && data.chat) {
-                setSessionId(data.chat.sessionId);
+                setSessionIds(prev => ({
+                  ...prev,
+                  openai: data.chat.sessionId
+                }));
                 
                 if (Array.isArray(data.chat.messages)) {
                   const initialMessages = data.chat.messages.map(msg => ({
@@ -592,6 +733,50 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
       setLoading(false);
     }
   }, [initChat, shouldUsePublicChat]);
+
+  // Add recreateSession function
+  const recreateSession = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setSessionError(null);
+    setIsChatReady(false);
+    
+    try {
+      // Reset initialization flags
+      initializedRef.current = false;
+      initializingRef.current = false;
+      initAttempts.current = 0;
+      
+      // Initialize new chat session
+      const currentServices = getChatServices(chatType, !!userInfo);
+      const data = await currentServices.initChat();
+      
+      if (data.success && data.chat) {
+        // Update sessionId for current chat type
+        setSessionIds(prev => ({
+          ...prev,
+          [chatType]: data.chat.sessionId
+        }));
+        
+        if (Array.isArray(data.chat.messages)) {
+          const initialMessages = data.chat.messages.map(msg => ({
+            role: msg.role,
+            content: msg.content,
+            model: msg.model
+          }));
+          setMessages(initialMessages);
+        }
+        
+        initializedRef.current = true;
+        setIsChatReady(true);
+      }
+    } catch (error) {
+      console.error('Error recreating session:', error);
+      setError('Không thể tạo lại phiên chat. Vui lòng thử lại sau.');
+    } finally {
+      setLoading(false);
+    }
+  }, [chatType, userInfo]);
 
   const getMessageClass = (message) => {
     // Nếu là tin nhắn từ fallback model
@@ -718,22 +903,24 @@ const AIChatModal = ({ isOpen, onClose, onChatTypeChange }) => {
                 <div className="ml-2 flex-grow">
                   <p className="text-xs text-red-700">{error}</p>
                 </div>
-                <button 
-                  onClick={recoverSession} 
-                  className="mx-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-0.5 rounded"
-                  title="Thử kết nối lại"
-                >
-                  Thử lại
-                </button>
-                <button 
-                  onClick={() => setError(null)} 
-                  className="text-xs text-red-500 hover:text-red-700"
-                  title="Đóng thông báo"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={recreateSession} 
+                    className="mx-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-0.5 rounded"
+                    title="Tạo lại phiên chat"
+                  >
+                    Tạo lại phiên
+                  </button>
+                  <button 
+                    onClick={() => setError(null)} 
+                    className="text-xs text-red-500 hover:text-red-700"
+                    title="Đóng thông báo"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           )}
