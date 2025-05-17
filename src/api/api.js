@@ -82,6 +82,14 @@ api.interceptors.response.use(
             });
             console.log(`Cached response for: ${response.config.url}`);
         }
+
+        // Clear cart cache after quantity updates
+        if (response.config.url.includes('quantity-inc') || 
+            response.config.url.includes('quantity-dec') ||
+            response.config.url.includes('delete-card-product') ||
+            response.config.url.includes('add-to-card')) {
+            api.clearCache('/home/product/get-card-product');
+        }
         
         console.log('Response received:', response.data);
         return response;
@@ -128,10 +136,15 @@ api.interceptors.response.use(
                 method: error.config.method,
                 data: error.config.data
             });
+            // Trả về trực tiếp error.response.data thay vì wrap trong Promise.reject
             return Promise.reject(error.response.data);
         }
 
-        return Promise.reject(error);
+        // Nếu không có response từ server
+        return Promise.reject({
+            success: false,
+            message: error.message || 'Có lỗi xảy ra'
+        });
     }
 );
 

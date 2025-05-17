@@ -6,42 +6,12 @@ export const add_to_card = createAsyncThunk(
     'card/add_to_card',
     async (info, { rejectWithValue }) => {
         try {
-            // Kiểm tra và chuẩn bị dữ liệu
-            if (!info.userId || !info.productId) {
-                return rejectWithValue({ 
-                    message: 'Vui lòng điền đầy đủ thông tin' 
-                });
-            }
-
-            const requestData = {
-                userId: info.userId,
-                productId: info.productId,
-                quantity: info.quantity || 1
-            };
-
-            console.log('Adding to cart:', requestData);
-            const response = await api.post('/home/product/add-to-card', requestData);
-            console.log('Add to cart response:', response.data);
-            
+            const response = await api.post('/home/product/add-to-card', info);
             return response.data;
         } catch (error) {
-            console.error('Add to cart error:', error.response?.data || error);
-            
-            // Xử lý các loại lỗi từ server
-            const errorMessages = {
-                'Sản phẩm đã có trong giỏ hàng': 'Sản phẩm đã có trong giỏ hàng',
-                'Vui lòng điền đầy đủ thông tin': 'Vui lòng điền đầy đủ thông tin',
-                'Lỗi máy chủ': 'Có lỗi xảy ra, vui lòng thử lại sau'
-            };
-
-            const serverError = error.response?.data?.error;
-            if (serverError && errorMessages[serverError]) {
-                return rejectWithValue({ message: errorMessages[serverError] });
-            }
-
-            return rejectWithValue({ 
-                message: error.response?.data?.message || 'Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng' 
-            });
+            console.log('Error response:', error);
+            // Trả về trực tiếp error vì nó đã được xử lý bởi api interceptor
+            return rejectWithValue(error);
         }
     }
 );
@@ -51,21 +21,10 @@ export const get_card_products = createAsyncThunk(
     'card/get_card_products',
     async (userId, { rejectWithValue }) => {
         try {
-            if (!userId) {
-                return rejectWithValue({ message: 'Vui lòng cung cấp ID người dùng' });
-            }
-
             const response = await api.get(`/home/product/get-card-product/${userId}`);
             return response.data;
         } catch (error) {
-            console.error('Get cart products error:', error.response?.data || error);
-            
-            // Xử lý lỗi timeout
-            if (error.code === 'ECONNABORTED') {
-                return rejectWithValue({ message: 'Kết nối tới server quá lâu. Vui lòng thử lại sau.' });
-            }
-            
-            return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi lấy thông tin giỏ hàng' });
+            return rejectWithValue(error.response?.data);
         }
     }
 );
@@ -75,15 +34,10 @@ export const delete_card_product = createAsyncThunk(
     'card/delete_card_product',
     async (card_id, { rejectWithValue }) => {
         try {
-            if (!card_id) {
-                return rejectWithValue({ message: 'Vui lòng cung cấp ID giỏ hàng' });
-            }
-
             const response = await api.delete(`/home/product/delete-card-product/${card_id}`);
             return response.data;
         } catch (error) {
-            console.error('Delete cart product error:', error.response?.data || error);
-            return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi xóa sản phẩm khỏi giỏ hàng' });
+            return rejectWithValue(error.response?.data);
         }
     }
 );
@@ -93,15 +47,10 @@ export const quantity_inc = createAsyncThunk(
     'card/quantity_inc',
     async (card_id, { rejectWithValue }) => {
         try {
-            if (!card_id) {
-                return rejectWithValue({ message: 'Vui lòng cung cấp ID giỏ hàng' });
-            }
-
             const response = await api.put(`/home/product/quantity-inc/${card_id}`);
             return response.data;
         } catch (error) {
-            console.error('Increase quantity error:', error.response?.data || error);
-            return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi tăng số lượng sản phẩm' });
+            return rejectWithValue(error.response?.data);
         }
     }
 );
@@ -111,15 +60,10 @@ export const quantity_dec = createAsyncThunk(
     'card/quantity_dec',
     async (card_id, { rejectWithValue }) => {
         try {
-            if (!card_id) {
-                return rejectWithValue({ message: 'Vui lòng cung cấp ID giỏ hàng' });
-            }
-
             const response = await api.put(`/home/product/quantity-dec/${card_id}`);
             return response.data;
         } catch (error) {
-            console.error('Decrease quantity error:', error.response?.data || error);
-            return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi giảm số lượng sản phẩm' });
+            return rejectWithValue(error.response?.data);
         }
     }
 );
@@ -129,15 +73,10 @@ export const add_to_wishlist = createAsyncThunk(
     'wishlist/add_to_wishlist',
     async (info, { rejectWithValue }) => {
         try {
-            if (!info.slug) {
-                return rejectWithValue({ message: 'Vui lòng cung cấp mã sản phẩm' });
-            }
-
             const response = await api.post('/home/product/add-to-wishlist', info);
             return response.data;
         } catch (error) {
-            console.error('Add to wishlist error:', error.response?.data || error);
-            return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi thêm vào danh sách yêu thích' });
+            return rejectWithValue(error.response?.data);
         }
     }
 );
@@ -146,15 +85,10 @@ export const get_wishlist_products = createAsyncThunk(
     'wishlist/get_wishlist_products',
     async (userId, { rejectWithValue }) => {
         try {
-            if (!userId) {
-                return rejectWithValue({ message: 'Vui lòng cung cấp ID người dùng' });
-            }
-
             const response = await api.get(`/home/product/get-wishlist-products/${userId}`);
             return response.data;
         } catch (error) {
-            console.error('Get wishlist error:', error.response?.data || error);
-            return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi lấy danh sách yêu thích' });
+            return rejectWithValue(error.response?.data);
         }
     }
 );
@@ -163,15 +97,10 @@ export const remove_wishlist = createAsyncThunk(
     'wishlist/remove_wishlist',
     async (wishlistId, { rejectWithValue }) => {
         try {
-            if (!wishlistId) {
-                return rejectWithValue({ message: 'Vui lòng cung cấp ID danh sách yêu thích' });
-            }
-
             const response = await api.delete(`/home/product/remove-wishlist-product/${wishlistId}`);
             return response.data;
         } catch (error) {
-            console.error('Remove wishlist error:', error.response?.data || error);
-            return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi xóa khỏi danh sách yêu thích' });
+            return rejectWithValue(error.response?.data);
         }
     }
 );
@@ -189,7 +118,14 @@ const cardReducer = createSlice({
         shipping_fee: 0,
         outofstock_products: [],
         buy_product_item: 0,
-        loading: false
+        loading: false,
+        summary: {
+            totalPrice: 0,
+            totalItems: 0,
+            shippingFee: 0,
+            outOfStockCount: 0,
+            buyableItems: 0
+        }
     },
     reducers: {
         messageClear: (state) => {
@@ -212,39 +148,53 @@ const cardReducer = createSlice({
             .addCase(add_to_card.fulfilled, (state, { payload }) => {
                 state.loading = false;
                 state.successMessage = payload.message;
-                if (payload.product) {
+                if (payload.data?.product) {
                     state.card_product_count = (state.card_product_count || 0) + 1;
                 }
             })
             .addCase(add_to_card.rejected, (state, { payload }) => {
+                console.log('Add to cart rejected payload:', payload);
                 state.loading = false;
-                state.errorMessage = payload?.message || 'Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng';
+                state.errorMessage = payload?.message;
             })
 
             // Get cart products
             .addCase(get_card_products.fulfilled, (state, { payload }) => {
-                state.card_products = payload.card_products || [];
-                state.price = payload.price || 0;
-                state.card_product_count = payload.card_product_count || 0;
-                state.shipping_fee = payload.shipping_fee || 0;
-                state.outofstock_products = payload.outOfStockProduct || [];
-                state.buy_product_item = payload.buy_product_item || 0;
-                state.errorMessage = '';
+                if (payload.success) {
+                    state.card_products = payload.data.card_products || [];
+                    state.summary = payload.data.summary || {
+                        totalPrice: 0,
+                        totalItems: 0,
+                        shippingFee: 0,
+                        outOfStockCount: 0,
+                        buyableItems: 0
+                    };
+                    state.outofstock_products = payload.data.outOfStockProducts || [];
+                    state.card_product_count = state.summary.totalItems;
+                    state.buy_product_item = state.summary.buyableItems;
+                    state.price = state.summary.totalPrice;
+                    state.shipping_fee = state.summary.shippingFee;
+                    state.errorMessage = '';
+                } else {
+                    state.errorMessage = payload.message;
+                }
             })
             .addCase(get_card_products.rejected, (state, { payload }) => {
-                state.errorMessage = payload?.message || 'Lỗi khi tải giỏ hàng';
-                // Không reset state.card_products và các thông tin khác để tránh mất dữ liệu đã có
+                state.errorMessage = payload?.message;
             })
 
             // Delete cart product
             .addCase(delete_card_product.fulfilled, (state, { payload }) => {
-                state.successMessage = payload.message;
-                state.card_product_count = Math.max(0, state.card_product_count - 1);
+                if (payload.success) {
+                    state.successMessage = payload.message;
+                    state.card_product_count = Math.max(0, state.card_product_count - 1);
+                } else {
+                    state.errorMessage = payload.message;
+                }
             })
 
             // Quantity increase
             .addCase(quantity_inc.pending, (state, { meta }) => {
-                // Optimistic update - tăng số lượng sản phẩm ngay trong UI trước khi hoàn tất API
                 const card_id = meta.arg;
                 state.card_products = state.card_products.map(shop => ({
                     ...shop,
@@ -256,15 +206,28 @@ const cardReducer = createSlice({
                 }));
             })
             .addCase(quantity_inc.fulfilled, (state, { payload }) => {
-                state.successMessage = payload.message;
+                if (payload.success) {
+                    state.successMessage = payload.message;
+                    if (payload.data?.updatedProduct) {
+                        state.card_products = state.card_products.map(shop => ({
+                            ...shop,
+                            products: shop.products.map(p => 
+                                p._id === payload.data.updatedProduct._id 
+                                    ? payload.data.updatedProduct 
+                                    : p
+                            )
+                        }));
+                    }
+                } else {
+                    state.errorMessage = payload.message;
+                }
             })
             .addCase(quantity_inc.rejected, (state, { payload }) => {
-                state.errorMessage = payload?.message || 'Có lỗi xảy ra khi tăng số lượng sản phẩm';
+                state.errorMessage = payload?.message;
             })
 
             // Quantity decrease
             .addCase(quantity_dec.pending, (state, { meta }) => {
-                // Optimistic update - giảm số lượng sản phẩm ngay trong UI trước khi hoàn tất API
                 const card_id = meta.arg;
                 state.card_products = state.card_products.map(shop => ({
                     ...shop,
@@ -276,28 +239,54 @@ const cardReducer = createSlice({
                 }));
             })
             .addCase(quantity_dec.fulfilled, (state, { payload }) => {
-                state.successMessage = payload.message;
+                if (payload.success) {
+                    state.successMessage = payload.message;
+                    if (payload.data?.updatedProduct) {
+                        state.card_products = state.card_products.map(shop => ({
+                            ...shop,
+                            products: shop.products.map(p => 
+                                p._id === payload.data.updatedProduct._id 
+                                    ? payload.data.updatedProduct 
+                                    : p
+                            )
+                        }));
+                    }
+                } else {
+                    state.errorMessage = payload.message;
+                }
             })
             .addCase(quantity_dec.rejected, (state, { payload }) => {
-                state.errorMessage = payload?.message || 'Có lỗi xảy ra khi giảm số lượng sản phẩm';
+                state.errorMessage = payload?.message;
             })
 
             // Wishlist actions
             .addCase(add_to_wishlist.rejected, (state, { payload }) => {
-                state.errorMessage = payload?.message || 'Có lỗi xảy ra khi thêm vào danh sách yêu thích';
+                state.errorMessage = payload?.message;
             })
             .addCase(add_to_wishlist.fulfilled, (state, { payload }) => {
-                state.successMessage = payload.message;
-                state.wishlist_count = (state.wishlist_count || 0) + 1;
+                if (payload.success) {
+                    state.successMessage = payload.message;
+                    state.wishlist_count = (state.wishlist_count || 0) + 1;
+                } else {
+                    state.errorMessage = payload.message;
+                }
             })
             .addCase(get_wishlist_products.fulfilled, (state, { payload }) => {
-                state.wishlist = payload.wishlists || [];
-                state.wishlist_count = payload.wishlistCount || 0;
+                if (payload.success) {
+                    state.wishlist = payload.data.wishlists || [];
+                    state.wishlist_count = payload.data.wishlistCount || 0;
+                } else {
+                    state.errorMessage = payload.message;
+                }
             })
             .addCase(remove_wishlist.fulfilled, (state, { payload }) => {
-                state.successMessage = payload.message;
-                state.wishlist = state.wishlist.filter(p => p._id !== payload.wishlistId);
-                state.wishlist_count = Math.max(0, state.wishlist_count - 1);
+                if (payload.success) {
+                    state.successMessage = payload.message;
+                    state.wishlist = state.wishlist.filter(p => p._id !== payload.data.deletedWishlistId);
+                    state.wishlist_count = Math.max(0, state.wishlist_count - 1);
+                } else {
+                    state.errorMessage = payload.message;
+                }
             });
     }
 });
