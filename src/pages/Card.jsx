@@ -70,16 +70,6 @@ const Card = () => {
     const inc = (quantity, stock, card_id) => {
         const temp = quantity + 1;
         if (temp <= stock) {
-            // Cập nhật UI ngay lập tức bằng cách tạo ra "optimistic update"
-            const updatedProducts = [...card_products].map(shop => ({
-                ...shop,
-                products: shop.products.map(product => 
-                    product._id === card_id 
-                        ? { ...product, quantity: product.quantity + 1 } 
-                        : product
-                )
-            }));
-            
             // Hiển thị thông báo tạm thời cho người dùng
             toast.loading('Đang cập nhật số lượng...', { id: 'quantity-update' });
             
@@ -104,16 +94,6 @@ const Card = () => {
     const dec = (quantity, card_id) => {
         const temp = quantity - 1;
         if (temp !== 0) {
-            // Cập nhật UI ngay lập tức
-            const updatedProducts = [...card_products].map(shop => ({
-                ...shop,
-                products: shop.products.map(product => 
-                    product._id === card_id 
-                        ? { ...product, quantity: product.quantity - 1 } 
-                        : product
-                )
-            }));
-            
             // Hiển thị thông báo tạm thời cho người dùng
             toast.loading('Đang cập nhật số lượng...', { id: 'quantity-update' });
             

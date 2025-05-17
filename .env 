@@ -1,5 +1,0 @@
-# Stripe API Keys
-REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_51NkKjoLGiNne9ofSvfgCBu4tSouG22SMn1vjKSFsEIzthLfm6PGAPp5Fk5rMjVqrEw5leYaCI3a2NTO1yHQyBmwb00k1Jj5137
-
-# API Configuration
-REACT_APP_API_URL=http://localhost:5000/api

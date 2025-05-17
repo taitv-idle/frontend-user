@@ -4,37 +4,16 @@ import { loadStripe } from '@stripe/stripe-js';
 import api from '../api/api';
 import { toast } from 'react-hot-toast';
 
-/**
- * LƯU Ý VỀ CÁCH CẤU HÌNH STRIPE PAYMENT TRONG HỆ THỐNG:
- * 
- * 1. WEBHOOK:
- * - Webhook là cần thiết để xử lý các thanh toán bất đồng bộ (ví dụ: 3DS, thanh toán bị delay)
- * - Cấu hình trên Stripe Dashboard: https://dashboard.stripe.com/webhooks
- * - Thiết lập webhook endpoint: https://your-domain.com/api/payment/webhook
- * - Sự kiện cần lắng nghe: payment_intent.succeeded, payment_intent.payment_failed
- * - Trong môi trường phát triển: Sử dụng Stripe CLI để test webhook locally
- * 
- * 2. XỬ LÝ ĐƠN VỊ TIỀN TỆ:
- * - Frontend: Hiển thị số tiền dưới dạng VND (ví dụ: 100,000 VND)
- * - API: Gửi số tiền ở dạng nguyên gốc (100000)
- * - Backend: Chuyển đổi từ VND sang smallest unit của Stripe (không cần *100)
- * - LƯU Ý: Stripe xử lý VND không có phần thập phân, nên không cần * 100 như USD
- * 
- * 3. LUỒNG THANH TOÁN:
- * - Tạo đơn hàng -> Tạo payment intent -> Xác nhận thanh toán -> Xử lý webhook -> Cập nhật trạng thái
- * - Nếu có 3DS: redirect người dùng -> xử lý kết quả 3DS -> webhook -> cập nhật trạng thái
- * 
- * 4. THẺ TEST:
- * - Thẻ thành công: 4242 4242 4242 4242
- * - Thẻ yêu cầu xác thực (3DS): 4000 0000 0000 3220
- * - Thẻ bị từ chối: 4000 0000 0000 0002
- * - Ngày hết hạn: Bất kỳ ngày nào trong tương lai
- * - CVC: Bất kỳ 3 con số nào
- * - Zip code: Bất kỳ 5 con số nào
- */
 
-// Constants
-const STRIPE_PUBLISHABLE_KEY = 'pk_test_51Oml5cGAwoXiNtjJgPPyQngDj9WTjawya4zCsqTn3LPFhl4VvLZZJIh9fW9wqVweFYC5f0YEb9zjUqRpXbkEKT7T00eU1xQvjp';
+const STRIPE_PUBLISHABLE_KEY = 'pk_test_51NkKjoLGiNne9ofSvfgCBu4tSouG22SMn1vjKSFsEIzthLfm6PGAPp5Fk5rMjVqrEw5leYaCI3a2NTO1yHQyBmwb00k1Jj5137';
+
+// Kiểm tra Stripe key
+if (!STRIPE_PUBLISHABLE_KEY) {
+    console.error('Stripe publishable key is missing');
+}
+
+// Khởi tạo Stripe promise
+const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 
 // Card element styling
 const cardElementOptions = {
@@ -77,124 +56,273 @@ const ERROR_MESSAGES = {
 };
 
 // Component con xử lý form thanh toán
-const CheckoutForm = ({ amount, orderId, onSuccess, disabled }) => {
+const CheckoutForm = ({ amount, orderId, onSuccess, disabled, recoveryMode, apiStatus }) => {
     const stripe = useStripe();
     const elements = useElements();
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState('');
     const [clientSecret, setClientSecret] = useState('');
     const [cardComplete, setCardComplete] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isInitialized, setIsInitialized] = useState(false);
+    const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+    const [adBlockerDetected, setAdBlockerDetected] = useState(false);
 
-    // Tạo payment intent khi component được tải
+    // Kiểm tra ad blocker khi component mount
     useEffect(() => {
-        let isActive = true; // Để tránh memory leak
+        checkForAdBlocker();
+    }, []);
+
+    const checkForAdBlocker = async () => {
+        const testUrl = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js';
+        try {
+            await fetch(testUrl, { method: 'HEAD', mode: 'no-cors' });
+            setAdBlockerDetected(false);
+        } catch (e) {
+            console.log('Ad blocker detected');
+            setAdBlockerDetected(true);
+        }
+    };
+
+    // Kiểm tra token khi component mount
+    useEffect(() => {
+        const token = localStorage.getItem('customerToken');
+        console.log('Initial token check:', {
+            hasToken: !!token,
+            tokenLength: token ? token.length : 0,
+            tokenStart: token ? token.substring(0, 10) + '...' : 'none'
+        });
+    }, []);
+
+    const handleAuthError = () => {
+        console.log('Handling auth error...');
+        const currentPath = window.location.pathname + window.location.search;
+        console.log('Current path:', currentPath);
+        if (currentPath !== '/login') {
+            console.log('Setting redirect path...');
+            localStorage.setItem('redirectAfterLogin', currentPath);
+            setShowLoginPrompt(true);
+        }
+    };
+
+    // Hàm khởi tạo lại payment intent
+    const resetAndCreateNewPaymentIntent = () => {
+        console.log('Resetting and creating new payment intent...');
+        // Đặt lại trạng thái
+        setClientSecret('');
+        setIsInitialized(false);
+        setIsLoading(true);
+        setError('');
+    };
+
+    // Add API connectivity status check
+    useEffect(() => {
+        // If API is not connecting, show error
+        if (apiStatus && (apiStatus.includes('Không thể kết nối') || apiStatus.includes('Lỗi'))) {
+            setError('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại sau.');
+        }
+    }, [apiStatus]);
+
+    // Modify createPaymentIntent to handle API connectivity issues
+    useEffect(() => {
+        let isActive = true;
+        let retryCount = 0;
+        const MAX_RETRIES = 2;
         
         const createPaymentIntent = async () => {
+            console.log('Starting createPaymentIntent... Retry count:', retryCount);
+            if (isInitialized && clientSecret) {
+                console.log('Already initialized, returning...');
+                return;
+            }
+
             if (!amount || !orderId) {
+                console.log('Missing amount or orderId:', { amount, orderId });
                 setError(ERROR_MESSAGES.MISSING_DATA);
                 toast.error(ERROR_MESSAGES.MISSING_DATA);
+                setIsLoading(false);
+                return;
+            }
+
+            // Check if API is working before trying to create payment intent
+            if (apiStatus && (apiStatus.includes('Không thể kết nối') || apiStatus.includes('Lỗi'))) {
+                console.log('API connection issues detected, showing error');
+                setError('Không thể kết nối đến máy chủ thanh toán. Vui lòng kiểm tra kết nối mạng và thử lại sau.');
+                toast.error('Không thể kết nối đến máy chủ thanh toán');
+                setIsLoading(false);
                 return;
             }
 
             try {
-                console.log('Creating payment intent for orderId:', orderId, 'amount:', amount);
+                console.log('Checking token...');
+                const token = localStorage.getItem('customerToken');
                 
-                // Chỉ xóa payment intent cũ nếu đang tạo mới (không cần trong trường hợp sử dụng lại)
-                const existingPaymentIntentId = localStorage.getItem('paymentIntentId');
-                console.log('Existing payment intent ID:', existingPaymentIntentId || 'none');
-                
-                // Gửi request để tạo hoặc lấy payment intent
-                const { data } = await api.post('/order/create-payment-intent', {
-                    price: amount, // Đơn vị VND
-                    orderId,
-                    // Gửi payment intent ID nếu đã tồn tại để backend có thể kiểm tra
-                    existingPaymentIntentId
-                });
-
-                console.log('Payment intent response:', data);
-
-                if (!data?.clientSecret) {
-                    throw new Error(ERROR_MESSAGES.NO_CLIENT_SECRET);
+                if (!token) {
+                    console.log('No token found, showing error...');
+                    setError('Vui lòng đăng nhập để tiếp tục thanh toán');
+                    toast.error('Vui lòng đăng nhập để tiếp tục thanh toán');
+                    handleAuthError();
+                    return;
                 }
 
-                if (isActive) {
-                    // Lưu orderId để sau khi thanh toán thành công
-                    localStorage.setItem('orderId', orderId);
-                    
-                    // Lưu payment intent ID và client secret cho xác nhận thanh toán sau này
-                    if (data.paymentIntentId) {
-                        localStorage.setItem('paymentIntentId', data.paymentIntentId);
-                        localStorage.setItem('clientSecret', data.clientSecret);
-                        console.log('Saved payment intent data to localStorage');
+                // Kiểm tra token có hợp lệ không
+                try {
+                    const tokenParts = token.split('.');
+                    if (tokenParts.length !== 3) {
+                        throw new Error('Invalid token format');
                     }
+                    const payload = JSON.parse(atob(tokenParts[1]));
+                    const expirationTime = payload.exp * 1000; // Convert to milliseconds
+                    if (Date.now() >= expirationTime) {
+                        throw new Error('Token expired');
+                    }
+                    console.log('Token is valid, expiration:', new Date(expirationTime).toLocaleString());
+                } catch (tokenError) {
+                    console.error('Token validation error:', tokenError);
+                    localStorage.removeItem('customerToken'); // Xóa token không hợp lệ
+                    setError('Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.');
+                    toast.error('Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.');
+                    handleAuthError();
+                    return;
+                }
+
+                // Tính toán tổng tiền bao gồm phí vận chuyển
+                const shippingFee = amount >= 500000 ? 0 : 40000;
+                const totalAmount = amount + shippingFee;
+
+                console.log('Creating payment intent with data:', {
+                    price: totalAmount,
+                    orderId,
+                    priceType: typeof totalAmount,
+                    orderIdType: typeof orderId
+                });
+                
+                try {
+                    // Thêm timeout để tránh các vấn đề về mạng
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 giây timeout
                     
-                    setClientSecret(data.clientSecret);
-                    console.log('Client secret set successfully');
+                    const response = await api.post('/payment/create-payment-intent', {
+                        price: totalAmount,
+                        orderId
+                    }, {
+                        headers: { 
+                            Authorization: `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+
+                    console.log('API Response:', response);
+
+                    if (!response.data) {
+                        throw new Error('No data received from server');
+                    }
+
+                    const { data } = response;
+
+                    console.log('Payment intent response:', data);
+
+                    if (!data?.success) {
+                        throw new Error(data?.message || ERROR_MESSAGES.PAYMENT_FAILED);
+                    }
+
+                    if (!data?.clientSecret) {
+                        throw new Error(ERROR_MESSAGES.NO_CLIENT_SECRET);
+                    }
+
+                    if (isActive) {
+                        console.log('Setting client secret and updating state...');
+                        const paymentIntentId = data.clientSecret.split('_secret_')[0];
+                        console.log('Payment Intent ID:', paymentIntentId);
+                        
+                        // Lưu cả payment intent ID và client secret
+                        setClientSecret(data.clientSecret);
+                        
+                        setIsLoading(false);
+                        setIsInitialized(true);
+                        // Reset retry count on success
+                        retryCount = 0;
+                    }
+                } catch (apiError) {
+                    console.error('API Error:', {
+                        message: apiError.message,
+                        response: apiError.response?.data,
+                        status: apiError.response?.status,
+                        headers: apiError.response?.headers
+                    });
+                    throw apiError;
                 }
             } catch (err) {
-                console.error('Payment intent error:', err);
+                console.error('Payment intent error:', {
+                    message: err.message,
+                    response: err.response?.data,
+                    status: err.response?.status,
+                    stack: err.stack
+                });
+                
                 if (isActive) {
-                    const errorMessage = getErrorMessage(err);
-                    setError(errorMessage);
-                    toast.error(errorMessage);
+                    if (err.message === 'Unauthorized' || err.response?.status === 401) {
+                        console.log('Unauthorized error, handling auth error...');
+                        setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+                        toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+                        handleAuthError();
+                    } else if (err.response?.data?.message?.includes('hết hạn') || err.message.includes('failed')) {
+                        console.log('Payment intent expired or failed, retrying...');
+                        setIsInitialized(false);
+                        setError('Phiên thanh toán đã hết hạn. Đang tạo phiên mới...');
+                        toast.error('Phiên thanh toán đã hết hạn. Đang tạo phiên mới...');
+                        // Tự động thử lại nhưng có giới hạn số lần thử
+                        if (retryCount < MAX_RETRIES) {
+                            retryCount++;
+                            setTimeout(() => {
+                                if (isActive) createPaymentIntent();
+                            }, 2000);
+                        } else {
+                            setError('Không thể tạo phiên thanh toán sau nhiều lần thử. Vui lòng làm mới trang.');
+                            toast.error('Không thể tạo phiên thanh toán sau nhiều lần thử. Vui lòng làm mới trang.');
+                        }
+                    } else {
+                        const errorMessage = getErrorMessage(err);
+                        console.error('Payment error details:', {
+                            errorMessage,
+                            originalError: err
+                        });
+                        setError(errorMessage);
+                        toast.error(errorMessage);
+                    }
+                    setIsLoading(false);
                 }
             }
         };
 
         createPaymentIntent();
         
-        // Cleanup
         return () => {
             isActive = false;
         };
-    }, [amount, orderId]);
-
-    // Thêm hàm để kiểm tra trạng thái của payment intent hiện có
-    useEffect(() => {
-        let isActive = true;
-        
-        const checkExistingPaymentIntent = async () => {
-            // Không làm gì nếu đã có client secret
-            if (clientSecret) return;
-            
-            const existingPaymentIntentId = localStorage.getItem('paymentIntentId');
-            const existingOrderId = localStorage.getItem('orderId');
-            const existingClientSecret = localStorage.getItem('clientSecret');
-            
-            // Kiểm tra nếu có payment intent ID và trùng với orderId hiện tại
-            if (existingPaymentIntentId && existingOrderId === orderId && existingClientSecret) {
-                try {
-                    console.log('Using existing payment intent from localStorage');
-                    
-                    if (isActive) {
-                        setClientSecret(existingClientSecret);
-                    }
-                } catch (err) {
-                    console.error('Error using existing payment intent:', err);
-                    // Nếu có lỗi, xóa dữ liệu cũ
-                    localStorage.removeItem('paymentIntentId');
-                    localStorage.removeItem('orderId');
-                    localStorage.removeItem('clientSecret');
-                }
-            } else {
-                // Xóa dữ liệu cũ nếu orderId không khớp
-                if (existingOrderId !== orderId) {
-                    localStorage.removeItem('paymentIntentId');
-                    localStorage.removeItem('orderId');
-                    localStorage.removeItem('clientSecret');
-                }
-            }
-        };
-        
-        checkExistingPaymentIntent();
-        
-        return () => {
-            isActive = false;
-        };
-    }, [orderId, clientSecret]);
+    }, [amount, orderId, isInitialized, clientSecret, apiStatus]);
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+        event.stopPropagation();
+
+        // Kiểm tra ad blocker
+        if (adBlockerDetected) {
+            setError(ERROR_MESSAGES.AD_BLOCKER);
+            toast.error(ERROR_MESSAGES.AD_BLOCKER);
+            return;
+        }
+
+        const token = localStorage.getItem('customerToken');
+        if (!token) {
+            setError('Vui lòng đăng nhập để tiếp tục thanh toán');
+            toast.error('Vui lòng đăng nhập để tiếp tục thanh toán');
+            handleAuthError();
+            return;
+        }
 
         if (!validateStripeReady()) {
             return;
@@ -210,17 +338,6 @@ const CheckoutForm = ({ amount, orderId, onSuccess, disabled }) => {
         setError('');
 
         try {
-            // Log thông tin để debug
-            console.log('Attempting payment with:', {
-                orderId,
-                amount,
-                hasClientSecret: !!clientSecret,
-                clientSecretLength: clientSecret ? clientSecret.length : 0
-            });
-            
-            console.log('Confirming payment with clientSecret:', clientSecret);
-            
-            // Tạo thông tin thẻ thanh toán
             const paymentData = {
                 payment_method: {
                     card: elements.getElement(CardElement),
@@ -230,69 +347,64 @@ const CheckoutForm = ({ amount, orderId, onSuccess, disabled }) => {
                 }
             };
             
-            // Nếu cần redirect cho 3DS, thêm return_url
-            if (window.location.origin) {
-                paymentData.return_url = `${window.location.origin}/order/confirm`;
-            }
+            console.log('Confirming payment with client secret:', clientSecret);
+            console.log('Payment Intent ID:', clientSecret.split('_secret_')[0]);
             
-            console.log('Payment data:', paymentData);
+            // Thử xác nhận thanh toán với timeout
+            const confirmPaymentWithTimeout = async () => {
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Payment confirmation timeout')), 30000)
+                );
+                
+                const confirmPromise = stripe.confirmCardPayment(clientSecret, paymentData);
+                
+                return Promise.race([confirmPromise, timeoutPromise]);
+            };
             
-            // Xác nhận thanh toán
-            const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
-                clientSecret, 
-                paymentData
-            );
+            const { error: stripeError, paymentIntent } = await confirmPaymentWithTimeout();
 
             if (stripeError) {
                 console.error('Stripe error during confirmation:', stripeError);
                 handleStripeError(stripeError);
-            } else {
-                console.log('Payment confirmed successfully:', paymentIntent);
-                
-                // Lưu payment intent ID cho xác nhận thanh toán
-                if (paymentIntent?.id) {
-                    localStorage.setItem('paymentIntentId', paymentIntent.id);
-                }
-                
-                // Xử lý các trạng thái khác nhau
-                if (paymentIntent.status === 'succeeded') {
-                    // Thanh toán thành công ngay lập tức
+                return;
+            }
+
+            if (paymentIntent.status === 'succeeded') {
+                try {
+                    const { data } = await api.patch(`/payment/confirm-payment/${orderId}`, {
+                        paymentIntentId: paymentIntent.id
+                    }, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+
+                    if (!data?.success) {
+                        throw new Error(data?.message || 'Xác nhận thanh toán thất bại');
+                    }
+                    
                     toast.success('Thanh toán thành công!');
-                    window.location.href = `/order/confirm?payment_intent_client_secret=${clientSecret}&payment_intent_id=${paymentIntent.id}`;
-                } else if (paymentIntent.status === 'requires_action') {
-                    // 3DS sẽ tự xử lý redirect
-                    console.log('Waiting for 3D Secure verification...');
-                    toast.loading('Đang xác thực thanh toán...');
-                } else if (paymentIntent.status === 'requires_payment_method') {
-                    // Cần một phương thức thanh toán
-                    console.log('Payment requires a payment method');
-                    setError('Vui lòng cung cấp thông tin thẻ hợp lệ để thanh toán');
-                    toast.error('Vui lòng cung cấp thông tin thẻ hợp lệ để thanh toán');
-                    setProcessing(false);
-                } else {
-                    // Trường hợp khác
-                    console.log('Unexpected payment status:', paymentIntent.status);
-                    window.location.href = `/order/confirm?payment_intent_client_secret=${clientSecret}`;
+                    window.location.href = `/order-confirmation/${orderId}`;
+                } catch (confirmError) {
+                    console.error('Error confirming payment with backend:', confirmError);
+                    if (confirmError.response?.status === 401 || confirmError.response?.status === 403) {
+                        setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+                        toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+                        handleAuthError();
+                    } else {
+                        toast.error(confirmError.response?.data?.message || 'Có lỗi xảy ra khi xác nhận thanh toán. Vui lòng liên hệ hỗ trợ.');
+                    }
                 }
+            } else if (paymentIntent.status === 'requires_action') {
+                console.log('Waiting for 3D Secure verification...');
+                toast.loading('Đang xác thực thanh toán...');
+            } else {
+                console.log('Unexpected payment status:', paymentIntent.status);
+                toast.error('Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại.');
             }
         } catch (err) {
             console.error('Error during payment confirmation:', err);
-            // Kiểm tra nếu là lỗi payment intent không tồn tại
-            if (err.message && (
-                err.message.includes('No such payment_intent') || 
-                err.message.includes('resource_missing')
-            )) {
-                // Xóa dữ liệu thanh toán cũ
-                localStorage.removeItem('paymentIntentId');
-                localStorage.removeItem('orderId');
-                localStorage.removeItem('clientSecret');
-                setClientSecret('');
-                
-                // Hiển thị thông báo và tải lại trang để tạo payment intent mới
-                toast.error(ERROR_MESSAGES.PAYMENT_INTENT_EXPIRED);
-                setTimeout(() => {
-                    window.location.reload();
-                }, 2000);
+            if (err.message === 'Payment confirmation timeout') {
+                setError('Xác nhận thanh toán quá thời gian. Vui lòng thử lại.');
+                toast.error('Xác nhận thanh toán quá thời gian. Vui lòng thử lại.');
             } else {
                 handlePaymentError(err);
             }
@@ -339,17 +451,22 @@ const CheckoutForm = ({ amount, orderId, onSuccess, disabled }) => {
         
         // Xử lý lỗi resource_missing đặc biệt (payment intent không tồn tại hoặc đã hết hạn)
         if (stripeError.code === 'resource_missing') {
+            console.log('Payment intent không tồn tại, tạo mới payment intent...');
             errorMessage = ERROR_MESSAGES.PAYMENT_INTENT_EXPIRED;
             
-            // Xóa payment intent cũ và tải lại trang
-            localStorage.removeItem('paymentIntentId');
-            localStorage.removeItem('orderId');
+            // Xóa trạng thái và tạo mới payment intent
             setClientSecret('');
+            setIsInitialized(false);
             
             toast.error(errorMessage);
+            
+            // Tạo mới payment intent sau 1 giây
             setTimeout(() => {
-                window.location.reload();
-            }, 2000);
+                // Reset trạng thái để kích hoạt useEffect tạo mới payment intent
+                resetAndCreateNewPaymentIntent();
+            }, 1000);
+            
+            return; // Kết thúc hàm ở đây để không thực hiện các xử lý khác
         }
         // Xử lý các lỗi thẻ phổ biến
         else if (stripeError.type === 'card_error') {
@@ -388,6 +505,7 @@ const CheckoutForm = ({ amount, orderId, onSuccess, disabled }) => {
             errorMessage = stripeError.message;
         } else if (stripeError.type === 'network_error') {
             errorMessage = ERROR_MESSAGES.AD_BLOCKER;
+            setAdBlockerDetected(true);
         } else {
             errorMessage = ERROR_MESSAGES.PAYMENT_FAILED;
         }
@@ -398,16 +516,73 @@ const CheckoutForm = ({ amount, orderId, onSuccess, disabled }) => {
 
     const handlePaymentError = (err) => {
         console.error('Payment error:', err);
-        const errorMessage = err.message.includes('Failed to fetch') || err.message.includes('ERR_BLOCKED_BY_CLIENT')
-            ? ERROR_MESSAGES.AD_BLOCKER
-            : err.response?.data?.message || ERROR_MESSAGES.PAYMENT_FAILED;
-        
-        setError(errorMessage);
-        toast.error(errorMessage);
+        if (err.message.includes('Failed to fetch') || err.message.includes('ERR_BLOCKED_BY_CLIENT')) {
+            setAdBlockerDetected(true);
+            setError(ERROR_MESSAGES.AD_BLOCKER);
+            toast.error(ERROR_MESSAGES.AD_BLOCKER);
+        } else {
+            const errorMessage = err.response?.data?.message || ERROR_MESSAGES.PAYMENT_FAILED;
+            setError(errorMessage);
+            toast.error(errorMessage);
+        }
     };
 
-    if (!clientSecret) {
+    if (adBlockerDetected) {
+        return <AdBlockerWarning />;
+    }
+
+    if (showLoginPrompt) {
+        return (
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                <h3 className="text-lg font-medium text-yellow-800 mb-2">Yêu cầu đăng nhập</h3>
+                <p className="text-yellow-700 mb-4">Vui lòng đăng nhập để tiếp tục thanh toán</p>
+                <button
+                    onClick={() => window.location.href = '/login'}
+                    className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                >
+                    Đăng nhập ngay
+                </button>
+            </div>
+        );
+    }
+
+    if (isLoading) {
         return <LoadingSpinner />;
+    }
+
+    if (!clientSecret) {
+        return (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-700">Không thể tạo phiên thanh toán. Vui lòng thử lại sau.</p>
+                <button 
+                    onClick={resetAndCreateNewPaymentIntent}
+                    className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                >
+                    Thử lại
+                </button>
+            </div>
+        );
+    }
+
+    // Add conditional rendering for API connectivity issues
+    if (apiStatus && (apiStatus.includes('Không thể kết nối') || apiStatus.includes('Lỗi'))) {
+        return (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+                <h3 className="text-lg font-medium text-red-800 mb-2">Lỗi kết nối máy chủ</h3>
+                <p className="text-red-700 mb-4">Không thể kết nối đến máy chủ thanh toán. Vui lòng kiểm tra:</p>
+                <ol className="list-decimal list-inside text-red-700 space-y-2">
+                    <li>Kết nối mạng của bạn</li>
+                    <li>Máy chủ có thể đang bảo trì hoặc gặp sự cố</li>
+                    <li>Vui lòng làm mới trang và thử lại sau</li>
+                </ol>
+                <button 
+                    onClick={() => window.location.reload()}
+                    className="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                >
+                    Làm mới trang
+                </button>
+            </div>
+        );
     }
 
     return (
@@ -479,43 +654,71 @@ const getErrorMessage = (error) => {
 
 // Component chính bọc Elements provider
 const StripePayment = ({ amount, orderId, onSuccess, disabled }) => {
-    const [adBlockerDetected, setAdBlockerDetected] = useState(false);
+    const [stripeError, setStripeError] = useState(null);
+    const [recoveryMode, setRecoveryMode] = useState(false);
 
     useEffect(() => {
-        const checkAdBlocker = async () => {
+        // Kiểm tra Stripe key khi component mount
+        if (!STRIPE_PUBLISHABLE_KEY) {
+            setStripeError('Stripe publishable key is missing');
+            return;
+        }
+
+        // Kiểm tra kết nối với Stripe
+        const checkStripeConnection = async () => {
             try {
-                await fetch('https://r.stripe.com/b', {
-                    method: 'POST',
-                    mode: 'no-cors'
-                });
-                setAdBlockerDetected(false);
-            } catch (error) {
-                if (error.message.includes('Failed to fetch') || error.message.includes('ERR_BLOCKED_BY_CLIENT')) {
-                    setAdBlockerDetected(true);
+                const stripe = await stripePromise;
+                if (!stripe) {
+                    throw new Error('Failed to load Stripe');
                 }
+                setStripeError(null);
+            } catch (error) {
+                console.error('Stripe connection error:', error);
+                setStripeError('Không thể kết nối với hệ thống thanh toán');
             }
         };
 
-        checkAdBlocker();
+        checkStripeConnection();
     }, []);
 
-    if (adBlockerDetected) {
-        return <AdBlockerWarning />;
-    }
+    const handleRecovery = () => {
+        console.log('Entering recovery mode...');
+        setRecoveryMode(true);
 
-    if (!STRIPE_PUBLISHABLE_KEY) {
-        return <PaymentSystemError />;
+        // Force reload the component
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
+    };
+
+    if (stripeError) {
+        return (
+            <div className="space-y-4">
+                <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-red-700">{stripeError}</p>
+                </div>
+                <button
+                    onClick={handleRecovery}
+                    className="w-full py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                >
+                    Thử khởi tạo lại phiên thanh toán
+                </button>
+            </div>
+        );
     }
 
     return (
-        <Elements stripe={loadStripe(STRIPE_PUBLISHABLE_KEY)}>
-            <CheckoutForm 
-                amount={amount} 
-                orderId={orderId} 
-                onSuccess={onSuccess} 
-                disabled={disabled} 
-            />
-        </Elements>
+        <div className="space-y-4">
+            <Elements stripe={stripePromise}>
+                <CheckoutForm 
+                    amount={amount} 
+                    orderId={orderId} 
+                    onSuccess={onSuccess} 
+                    disabled={disabled}
+                    recoveryMode={recoveryMode}
+                />
+            </Elements>
+        </div>
     );
 };
 
@@ -529,14 +732,6 @@ const AdBlockerWarning = () => (
             <li>Hoặc thêm trang web này vào whitelist của extension</li>
             <li>Sau đó làm mới trang và thử lại</li>
         </ol>
-    </div>
-);
-
-const PaymentSystemError = () => (
-    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-        <p className="text-yellow-700">
-            Không thể kết nối với hệ thống thanh toán. Vui lòng thử lại sau.
-        </p>
     </div>
 );
 
