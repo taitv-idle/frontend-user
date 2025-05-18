@@ -186,12 +186,33 @@ export const confirm_stripe_payment = createAsyncThunk(
 
 export const get_orders = createAsyncThunk(
     'order/get_orders',
-    async ({ status, customerId }, { rejectWithValue }) => {
+    async ({ status, customerId, page = 1, perPage = 10, sortBy = 'newest' }, { rejectWithValue }) => {
         try {
-            const { data } = await api.get(`/home/coustomer/get-orders/${customerId}/${status}`);
+            // Make sure to use consistent query parameter names that match your API
+            const { data } = await api.get(`/home/coustomer/get-orders/${customerId}/${status}`, {
+                params: { 
+                    page, 
+                    perPage, 
+                    sortBy 
+                }
+            });
+            
+            console.log('Order API response:', data);
+            
+            // If the API doesn't return pagination info, create it manually based on returned data
+            if (data && data.orders && !data.pagination) {
+                const totalOrders = data.totalOrders || data.orders.length;
+                data.pagination = {
+                    currentPage: page,
+                    totalPages: Math.ceil(totalOrders / perPage),
+                    totalOrders: totalOrders,
+                    perPage: perPage
+                };
+            }
+            
             return data;
         } catch (error) {
-            return rejectWithValue(error.response.data);
+            return rejectWithValue(error.response?.data || { message: 'Lỗi khi lấy danh sách đơn hàng' });
         }
     }
 );
@@ -411,6 +432,12 @@ const orderReducer = createSlice({
         currentOrder: null,
         dashboardData: null,
         paymentIntent: null,
+        pagination: {
+            currentPage: 1,
+            totalPages: 1,
+            totalOrders: 0,
+            perPage: 10
+        }
     },
     reducers: {
         messageClear: (state) => {
@@ -639,6 +666,17 @@ const orderReducer = createSlice({
             .addCase(get_orders.fulfilled, (state, { payload }) => {
                 state.loading = false;
                 state.myOrders = payload.orders || [];
+                
+                // Handle pagination data
+                if (payload.pagination) {
+                    state.pagination = {
+                        currentPage: payload.pagination.currentPage || 1,
+                        totalPages: payload.pagination.totalPages || 1,
+                        totalOrders: payload.pagination.totalOrders || 0,
+                        perPage: payload.pagination.perPage || 10
+                    };
+                }
+                
                 state.errorMessage = '';
             })
             .addCase(get_orders.rejected, (state, { payload }) => {
