@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { get_order_details } from '../../store/reducers/orderReducer';
+import { get_order_details, get_order_statuses } from '../../store/reducers/orderReducer';
 import { FiArrowLeft, FiPackage, FiCheckCircle, FiXCircle, FiClock } from 'react-icons/fi';
 import { ClipLoader } from 'react-spinners';
 import toast from 'react-hot-toast';
@@ -10,7 +10,8 @@ const OrderDetails = () => {
     const { orderId } = useParams();
     const navigate = useNavigate();
     const dispatch = useDispatch();
-    const { myOrder, loading, errorMessage } = useSelector(state => state.order);
+    const { myOrder, loading, errorMessage, orderStatuses } = useSelector(state => state.order);
+    const { deliveryStatuses = [], paymentStatuses = [] } = orderStatuses || {};
 
     useEffect(() => {
         if (!orderId) {
@@ -28,6 +29,12 @@ const OrderDetails = () => {
                 if (!response || !response.order) {
                     throw new Error('Không nhận được thông tin đơn hàng');
                 }
+                
+                // Fetch order statuses if they haven't been loaded yet
+                if ((!deliveryStatuses || deliveryStatuses.length === 0) && 
+                    (!paymentStatuses || paymentStatuses.length === 0)) {
+                    dispatch(get_order_statuses());
+                }
             } catch (error) {
                 console.error('Error fetching order details:', error);
                 toast.error(error.message || 'Có lỗi xảy ra khi tải thông tin đơn hàng');
@@ -36,7 +43,7 @@ const OrderDetails = () => {
         };
 
         fetchOrderDetails();
-    }, [dispatch, orderId, navigate]);
+    }, [dispatch, orderId, navigate, deliveryStatuses, paymentStatuses]);
 
     const formatDate = (dateString) => {
         const options = { 
@@ -82,35 +89,61 @@ const OrderDetails = () => {
 
     const getStatusIcon = (status) => {
         switch (status) {
-            case 'placed':
-                return <FiClock className="w-5 h-5 text-yellow-500" />;
             case 'pending':
+                return <FiClock className="w-5 h-5 text-yellow-500" />;
+            case 'processing':
                 return <FiPackage className="w-5 h-5 text-blue-500" />;
+            case 'shipped':
+                return <FiPackage className="w-5 h-5 text-indigo-500" />;
+            case 'delivered':
+                return <FiCheckCircle className="w-5 h-5 text-green-500" />;
+            case 'completed':
+                return <FiCheckCircle className="w-5 h-5 text-green-600" />;
             case 'cancelled':
                 return <FiXCircle className="w-5 h-5 text-red-500" />;
-            case 'warehouse':
-                return <FiCheckCircle className="w-5 h-5 text-green-500" />;
+            case 'returned':
+                return <FiXCircle className="w-5 h-5 text-orange-500" />;
             default:
-                return null;
+                return <FiClock className="w-5 h-5 text-gray-500" />;
         }
     };
 
     const getStatusText = (status) => {
+        // Try to find status display name from API data first
+        if (deliveryStatuses && deliveryStatuses.length > 0) {
+            const foundStatus = deliveryStatuses.find(s => s.value === status);
+            if (foundStatus) return foundStatus.displayName;
+        }
+        
+        // Fallback to hardcoded values
         switch (status) {
             case 'pending':
                 return 'Chờ xử lý';
             case 'processing':
                 return 'Đang xử lý';
-            case 'cancelled':
-                return 'Đã hủy';
+            case 'shipped':
+                return 'Đang giao hàng';
             case 'delivered':
                 return 'Đã giao hàng';
+            case 'completed':
+                return 'Hoàn thành';
+            case 'cancelled':
+                return 'Đã hủy';
+            case 'returned':
+                return 'Đã hoàn trả';
             default:
-                return status;
+                return status || 'Không xác định';
         }
     };
 
     const getPaymentStatusText = (status) => {
+        // Try to find status display name from API data first
+        if (paymentStatuses && paymentStatuses.length > 0) {
+            const foundStatus = paymentStatuses.find(s => s.value === status);
+            if (foundStatus) return foundStatus.displayName;
+        }
+        
+        // Fallback to hardcoded values
         switch (status) {
             case 'paid':
                 return 'Đã thanh toán';
@@ -118,6 +151,8 @@ const OrderDetails = () => {
                 return 'Chờ thanh toán';
             case 'unpaid':
                 return 'Chưa thanh toán';
+            case 'refunded':
+                return 'Đã hoàn tiền';
             case 'failed':
                 return 'Thanh toán thất bại';
             default:
@@ -133,6 +168,8 @@ const OrderDetails = () => {
                 return 'text-yellow-600';
             case 'unpaid':
                 return 'text-red-600';
+            case 'refunded':
+                return 'text-blue-600';
             case 'failed':
                 return 'text-red-600';
             default:

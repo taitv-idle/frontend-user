@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { get_order_details } from '../store/reducers/orderReducer';
+import { get_order_details, get_order_statuses } from '../store/reducers/orderReducer';
 import { reset_count, clear_cart } from '../store/reducers/cardReducer';
 import { toast } from 'react-hot-toast';
 import { FiCheckCircle, FiShoppingBag, FiHome, FiUser } from 'react-icons/fi';
@@ -11,8 +11,9 @@ const OrderConfirmation = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const params = useParams(); // Để lấy orderId từ URL
-    const { myOrder, loading } = useSelector(state => state.order);
+    const { myOrder, loading, orderStatuses } = useSelector(state => state.order);
     const { userInfo } = useSelector(state => state.auth);
+    const { deliveryStatuses = [], paymentStatuses = [] } = orderStatuses || {};
     
     // Lấy orderId từ location.state hoặc từ URL params
     const stateData = location.state || {};
@@ -48,6 +49,58 @@ const OrderConfirmation = () => {
     const calculateShippingFee = (totalPrice) => {
         if (!totalPrice) return 0;
         return totalPrice >= 500000 ? 0 : 40000;
+    };
+
+    const getPaymentStatusText = (status) => {
+        // Try to find status display name from API data first
+        if (paymentStatuses && paymentStatuses.length > 0) {
+            const foundStatus = paymentStatuses.find(s => s.value === status);
+            if (foundStatus) return foundStatus.displayName;
+        }
+        
+        // Fallback to hardcoded values
+        switch (status) {
+            case 'paid':
+                return 'Đã thanh toán';
+            case 'pending':
+                return 'Chờ thanh toán';
+            case 'unpaid':
+                return 'Chưa thanh toán';
+            case 'refunded':
+                return 'Đã hoàn tiền';
+            case 'failed':
+                return 'Thanh toán thất bại';
+            default:
+                return 'Chờ xác nhận';
+        }
+    };
+
+    const getDeliveryStatusText = (status) => {
+        // Try to find status display name from API data first
+        if (deliveryStatuses && deliveryStatuses.length > 0) {
+            const foundStatus = deliveryStatuses.find(s => s.value === status);
+            if (foundStatus) return foundStatus.displayName;
+        }
+        
+        // Fallback to hardcoded values
+        switch (status) {
+            case 'pending':
+                return 'Chờ xử lý';
+            case 'processing':
+                return 'Đang xử lý';
+            case 'shipped':
+                return 'Đang giao hàng';
+            case 'delivered':
+                return 'Đã giao hàng';
+            case 'completed':
+                return 'Hoàn thành';
+            case 'cancelled':
+                return 'Đã hủy';
+            case 'returned':
+                return 'Đã hoàn trả';
+            default:
+                return status || 'Chờ xử lý';
+        }
     };
 
     // Lấy thông tin sản phẩm từ localStorage - cả cartItems và recentlyViewed
@@ -247,6 +300,12 @@ const OrderConfirmation = () => {
         }
     }, [orderDetails, myOrder, dispatch]);
 
+    // After the useEffect where you fetch order details:
+    useEffect(() => {
+        // Fetch the order status list for displaying status names
+        dispatch(get_order_statuses());
+    }, [dispatch]);
+
     if (loading && !orderDetails) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -346,9 +405,13 @@ const OrderConfirmation = () => {
                         <div>
                             <p className="text-gray-600">Trạng thái thanh toán:</p>
                             <p className="font-medium">
-                                {order.payment_status === 'paid' || paymentStatus === 'paid' 
-                                    ? 'Đã thanh toán' 
-                                    : 'Chờ xác nhận'}
+                                {getPaymentStatusText(order.payment_status || paymentStatus)}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-gray-600">Trạng thái đơn hàng:</p>
+                            <p className="font-medium">
+                                {getDeliveryStatusText(order.delivery_status || 'pending')}
                             </p>
                         </div>
                     </div>

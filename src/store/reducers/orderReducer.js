@@ -56,7 +56,8 @@ export const place_order = createAsyncThunk(
                 totalPrice,
                 userId,
                 paymentMethod: paymentMethod || 'cod',
-                paymentStatus: paymentMethod === 'cod' ? 'pending' : 'unpaid'
+                payment_status: paymentMethod === 'cod' ? 'pending' : 'unpaid',
+                delivery_status: 'pending'
             };
 
             console.log('Sending order data to server:', JSON.stringify(orderData, null, 2));
@@ -412,6 +413,20 @@ export const get_customer_dashboard_data = createAsyncThunk(
     }
 );
 
+export const get_order_statuses = createAsyncThunk(
+    'order/get_order_statuses',
+    async (_, { rejectWithValue }) => {
+        try {
+            const { data } = await api.get('/order/statuses');
+            return data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || {
+                message: 'Không thể lấy danh sách trạng thái đơn hàng'
+            });
+        }
+    }
+);
+
 const orderReducer = createSlice({
     name: 'order',
     initialState: {
@@ -432,6 +447,10 @@ const orderReducer = createSlice({
         currentOrder: null,
         dashboardData: null,
         paymentIntent: null,
+        orderStatuses: {
+            deliveryStatuses: [],
+            paymentStatuses: []
+        },
         pagination: {
             currentPage: 1,
             totalPages: 1,
@@ -484,9 +503,29 @@ const orderReducer = createSlice({
             .addCase(confirm_cod_payment.pending, (state) => {
                 state.paymentStatus = 'processing';
             })
-            .addCase(confirm_cod_payment.fulfilled, (state) => {
-                state.paymentStatus = 'succeeded';
+            .addCase(confirm_cod_payment.fulfilled, (state, { payload }) => {
+                state.paymentStatus = payload.order?.payment_status || 'pending';
                 state.successMessage = "Xác nhận COD thành công";
+                // Cập nhật trạng thái đơn hàng nếu có
+                if (payload.order && state.myOrder && state.myOrder._id === payload.order._id) {
+                    state.myOrder = {
+                        ...state.myOrder,
+                        payment_status: payload.order.payment_status,
+                        delivery_status: payload.order.delivery_status
+                    };
+                }
+                // Cập nhật đơn hàng trong danh sách đơn hàng nếu có
+                if (payload.order && state.myOrders && state.myOrders.length > 0) {
+                    state.myOrders = state.myOrders.map(order => 
+                        order._id === payload.order._id 
+                            ? {
+                                ...order,
+                                payment_status: payload.order.payment_status,
+                                delivery_status: payload.order.delivery_status
+                              }
+                            : order
+                    );
+                }
             })
             .addCase(confirm_cod_payment.rejected, (state, { payload }) => {
                 state.paymentStatus = 'failed';
@@ -495,9 +534,29 @@ const orderReducer = createSlice({
             .addCase(confirm_stripe_payment.pending, (state) => {
                 state.paymentStatus = 'processing';
             })
-            .addCase(confirm_stripe_payment.fulfilled, (state) => {
-                state.paymentStatus = 'succeeded';
+            .addCase(confirm_stripe_payment.fulfilled, (state, { payload }) => {
+                state.paymentStatus = payload.order?.payment_status || 'paid';
                 state.successMessage = "Thanh toán Stripe thành công";
+                // Cập nhật trạng thái đơn hàng nếu có
+                if (payload.order && state.myOrder && state.myOrder._id === payload.order._id) {
+                    state.myOrder = {
+                        ...state.myOrder,
+                        payment_status: payload.order.payment_status,
+                        delivery_status: payload.order.delivery_status
+                    };
+                }
+                // Cập nhật đơn hàng trong danh sách đơn hàng nếu có
+                if (payload.order && state.myOrders && state.myOrders.length > 0) {
+                    state.myOrders = state.myOrders.map(order => 
+                        order._id === payload.order._id 
+                            ? {
+                                ...order,
+                                payment_status: payload.order.payment_status,
+                                delivery_status: payload.order.delivery_status
+                              }
+                            : order
+                    );
+                }
             })
             .addCase(confirm_stripe_payment.rejected, (state, { payload }) => {
                 state.paymentStatus = 'failed';
@@ -628,10 +687,31 @@ const orderReducer = createSlice({
                 state.paymentStatus = 'processing';
             })
             .addCase(update_payment_status.fulfilled, (state, { payload }) => {
-                state.paymentStatus = payload.paymentStatus;
-                state.successMessage = payload.paymentStatus === 'paid' 
+                state.paymentStatus = payload.paymentStatus || payload.order?.payment_status || 'pending';
+                state.successMessage = payload.paymentStatus === 'paid' || payload.order?.payment_status === 'paid'
                     ? "Thanh toán thành công" 
                     : "Cập nhật trạng thái thanh toán thành công";
+                
+                // Cập nhật trạng thái đơn hàng nếu có
+                if (payload.order && state.myOrder && state.myOrder._id === payload.order._id) {
+                    state.myOrder = {
+                        ...state.myOrder,
+                        payment_status: payload.order.payment_status,
+                        delivery_status: payload.order.delivery_status
+                    };
+                }
+                // Cập nhật đơn hàng trong danh sách đơn hàng nếu có
+                if (payload.order && state.myOrders && state.myOrders.length > 0) {
+                    state.myOrders = state.myOrders.map(order => 
+                        order._id === payload.order._id 
+                            ? {
+                                ...order,
+                                payment_status: payload.order.payment_status,
+                                delivery_status: payload.order.delivery_status
+                              }
+                            : order
+                    );
+                }
             })
             .addCase(update_payment_status.rejected, (state, { payload }) => {
                 state.paymentStatus = 'failed';
@@ -695,6 +775,12 @@ const orderReducer = createSlice({
             .addCase(get_order_details.rejected, (state, { payload }) => {
                 state.loading = false;
                 state.errorMessage = payload?.message || 'Lỗi khi lấy thông tin đơn hàng';
+            })
+            .addCase(get_order_statuses.fulfilled, (state, { payload }) => {
+                state.orderStatuses = {
+                    deliveryStatuses: payload.deliveryStatuses || [],
+                    paymentStatuses: payload.paymentStatuses || []
+                };
             });
     }
 });

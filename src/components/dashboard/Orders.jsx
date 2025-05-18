@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
-import { get_orders } from '../../store/reducers/orderReducer';
+import { get_orders, get_order_statuses } from '../../store/reducers/orderReducer';
 import { FiChevronRight, FiClock, FiCheckCircle, FiXCircle, FiPackage, FiSearch, FiFilter, FiChevronLeft } from 'react-icons/fi';
 import { ClipLoader } from 'react-spinners';
 import toast from 'react-hot-toast';
@@ -17,7 +17,8 @@ const Orders = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const { userInfo } = useSelector(state => state.auth);
-    const { myOrders, loading, errorMessage, pagination } = useSelector(state => state.order);
+    const { myOrders, loading, errorMessage, pagination, orderStatuses } = useSelector(state => state.order);
+    const { deliveryStatuses = [] } = orderStatuses || {};
 
     const { totalPages = 1, totalOrders = 0, currentPage: serverPage = 1 } = pagination || {};
 
@@ -64,14 +65,17 @@ const Orders = () => {
         }
     }, [dispatch, statusFilter, userInfo, currentPage, ordersPerPage, searchQuery, sortBy]);
 
-    // Fetch orders when component mounts or when dependencies change
+    // Fetch orders and statuses when component mounts
     useEffect(() => {
         if (userInfo?.id) {
             if (!isSearching) {
                 fetchOrders();
             }
+            
+            // Fetch order statuses from the API
+            dispatch(get_order_statuses());
         }
-    }, [fetchOrders, userInfo?.id, currentPage, statusFilter, isSearching]);
+    }, [fetchOrders, userInfo?.id, currentPage, statusFilter, isSearching, dispatch]);
 
     // Handle search query changes
     useEffect(() => {
@@ -111,35 +115,62 @@ const Orders = () => {
 
     const getStatusIcon = (status) => {
         switch (status) {
-            case 'placed':
-                return <FiClock className="w-4 h-4 text-yellow-500 mr-2" />;
             case 'pending':
+                return <FiClock className="w-4 h-4 text-yellow-500 mr-2" />;
+            case 'processing':
                 return <FiPackage className="w-4 h-4 text-blue-500 mr-2" />;
+            case 'shipped':
+                return <FiPackage className="w-4 h-4 text-indigo-500 mr-2" />;
+            case 'delivered':
+                return <FiCheckCircle className="w-4 h-4 text-green-500 mr-2" />;
+            case 'completed':
+                return <FiCheckCircle className="w-4 h-4 text-green-600 mr-2" />;
             case 'cancelled':
                 return <FiXCircle className="w-4 h-4 text-red-500 mr-2" />;
-            case 'warehouse':
-                return <FiCheckCircle className="w-4 h-4 text-green-500 mr-2" />;
+            case 'returned':
+                return <FiXCircle className="w-4 h-4 text-orange-500 mr-2" />;
             default:
-                return null;
+                return <FiClock className="w-4 h-4 text-gray-500 mr-2" />;
         }
     };
 
     const getStatusText = (status) => {
+        // Try to find status display name from API data first
+        if (deliveryStatuses && deliveryStatuses.length > 0) {
+            const foundStatus = deliveryStatuses.find(s => s.value === status);
+            if (foundStatus) return foundStatus.displayName;
+        }
+        
+        // Fallback to hardcoded values
         switch (status) {
-            case 'placed':
-                return 'Đã đặt hàng';
             case 'pending':
+                return 'Chờ xử lý';
+            case 'processing':
                 return 'Đang xử lý';
+            case 'shipped':
+                return 'Đang giao hàng';
+            case 'delivered':
+                return 'Đã giao hàng';
+            case 'completed':
+                return 'Hoàn thành';
             case 'cancelled':
                 return 'Đã hủy';
-            case 'warehouse':
-                return 'Đã nhập kho';
+            case 'returned':
+                return 'Đã hoàn trả';
             default:
-                return status;
+                return status || 'Không xác định';
         }
     };
 
     const getPaymentStatusText = (status, paymentMethod) => {
+        // Try to find status display name from API data first
+        const { paymentStatuses = [] } = orderStatuses || {};
+        if (paymentStatuses && paymentStatuses.length > 0) {
+            const foundStatus = paymentStatuses.find(s => s.value === status);
+            if (foundStatus) return foundStatus.displayName;
+        }
+        
+        // Fallback to hardcoded values
         switch (status) {
             case 'paid':
                 return 'Đã thanh toán';
@@ -147,6 +178,8 @@ const Orders = () => {
                 return paymentMethod === 'cod' ? 'Chờ thanh toán' : 'Chờ xác nhận';
             case 'unpaid':
                 return 'Chưa thanh toán';
+            case 'refunded':
+                return 'Đã hoàn tiền';
             case 'failed':
                 return 'Thanh toán thất bại';
             default:
@@ -162,6 +195,8 @@ const Orders = () => {
                 return 'bg-yellow-100 text-yellow-800';
             case 'unpaid':
                 return 'bg-red-100 text-red-800';
+            case 'refunded':
+                return 'bg-blue-100 text-blue-800';
             case 'failed':
                 return 'bg-red-100 text-red-800';
             default:
@@ -213,13 +248,16 @@ const Orders = () => {
     };
 
     // Filter orders locally if we're searching
-    const filteredOrders = searchQuery && myOrders
-        ? myOrders.filter(order => 
-            order._id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            order.shippingInfo?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            order.shippingInfo?.phone?.includes(searchQuery)
-          )
-        : myOrders || [];
+    const filteredOrders = React.useMemo(() => {
+        if (searchQuery && myOrders) {
+            return myOrders.filter(order => 
+                order._id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                order.shippingInfo?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                order.shippingInfo?.phone?.includes(searchQuery)
+            );
+        }
+        return myOrders || [];
+    }, [searchQuery, myOrders]);
     
     // Apply sorting locally if server is not sorting properly
     const sortedOrders = React.useMemo(() => {
@@ -407,10 +445,23 @@ const Orders = () => {
                                 onChange={(e) => setStatusFilter(e.target.value)}
                             >
                                 <option value="all">Tất cả trạng thái</option>
-                                <option value="placed">Đã đặt hàng</option>
-                                <option value="pending">Đang xử lý</option>
-                                <option value="cancelled">Đã hủy</option>
-                                <option value="warehouse">Đã nhập kho</option>
+                                {deliveryStatuses.length > 0 ? (
+                                    deliveryStatuses.map(status => (
+                                        <option key={status.value} value={status.value}>
+                                            {status.displayName}
+                                        </option>
+                                    ))
+                                ) : (
+                                    <>
+                                        <option value="pending">Chờ xử lý</option>
+                                        <option value="processing">Đang xử lý</option>
+                                        <option value="shipped">Đang giao hàng</option>
+                                        <option value="delivered">Đã giao hàng</option>
+                                        <option value="completed">Hoàn thành</option>
+                                        <option value="cancelled">Đã hủy</option>
+                                        <option value="returned">Đã hoàn trả</option>
+                                    </>
+                                )}
                             </select>
                             <FiFilter className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                         </div>

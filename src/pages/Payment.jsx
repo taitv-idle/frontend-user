@@ -3,15 +3,35 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { useDispatch, useSelector } from 'react-redux';
 import StripePayment from '../components/StripePayment';
-import { confirm_cod_payment } from '../store/reducers/orderReducer';
+import { confirm_cod_payment, get_order_statuses } from '../store/reducers/orderReducer';
 import { reset_count, clear_cart } from '../store/reducers/cardReducer';
 import { FiCreditCard, FiTruck } from 'react-icons/fi';
+
+// Add the function to handle payment status text
+const getPaymentStatusText = (status) => {
+    switch (status) {
+        case 'paid':
+            return 'Đã thanh toán';
+        case 'pending':
+            return 'Chờ thanh toán';
+        case 'unpaid':
+            return 'Chưa thanh toán';
+        case 'refunded':
+            return 'Đã hoàn tiền';
+        case 'failed':
+            return 'Thanh toán thất bại';
+        default:
+            return 'Chờ xác nhận';
+    }
+};
 
 const Payment = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const dispatch = useDispatch();
     const { userInfo } = useSelector(state => state.auth);
+    const { orderStatuses } = useSelector(state => state.order);
+    const { paymentStatuses = [] } = orderStatuses || {};
     const [orderData, setOrderData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [processingCod, setProcessingCod] = useState(false);
@@ -35,6 +55,11 @@ const Payment = () => {
             navigate('/dashboard/my-orders');
         }
     }, [location.state, navigate]);
+
+    useEffect(() => {
+        // Fetch the order status options
+        dispatch(get_order_statuses());
+    }, [dispatch]);
 
     const handlePaymentSuccess = () => {
         // Không cần làm gì ở đây vì StripePayment sẽ tự chuyển hướng
@@ -78,7 +103,24 @@ const Payment = () => {
             
             // Hiển thị thông báo thành công
             toast.dismiss(toastId);
-            if (result && result.message) {
+            // Thêm kiểm tra trạng thái thanh toán từ kết quả
+            if (result && result.order) {
+                // Look up the payment status display name
+                let paymentStatusText = 'Đã xác nhận';
+                
+                if (paymentStatuses && paymentStatuses.length > 0) {
+                    const foundStatus = paymentStatuses.find(s => s.value === result.order.payment_status);
+                    if (foundStatus) {
+                        paymentStatusText = foundStatus.displayName;
+                    } else {
+                        paymentStatusText = getPaymentStatusText(result.order.payment_status);
+                    }
+                } else {
+                    paymentStatusText = getPaymentStatusText(result.order.payment_status);
+                }
+                
+                toast.success(`Xác nhận đơn hàng thành công! Trạng thái: ${paymentStatusText}`);
+            } else if (result && result.message) {
                 toast.success(result.message || 'Đặt hàng COD thành công!');
             } else {
                 toast.success('Đặt hàng COD thành công!');
