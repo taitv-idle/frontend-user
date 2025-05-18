@@ -92,8 +92,7 @@ const Card = () => {
 
     // Giảm số lượng sản phẩm (tối thiểu 1)
     const dec = (quantity, card_id) => {
-        const temp = quantity - 1;
-        if (temp !== 0) {
+        if (quantity > 1) {
             // Hiển thị thông báo tạm thời cho người dùng
             toast.loading('Đang cập nhật số lượng...', { id: 'quantity-update' });
             
@@ -229,7 +228,7 @@ const Card = () => {
                                                             <div className='flex items-center gap-4'>
                                                                 <div className='flex items-center border border-gray-200 rounded'>
                                                                     <button
-                                                                        onClick={() => dec(product.quantity, product.productInfo.stock, product._id)}
+                                                                        onClick={() => dec(product.quantity, product._id)}
                                                                         className='px-3 py-1 text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed'
                                                                         disabled={product.quantity <= 1}
                                                                     >
