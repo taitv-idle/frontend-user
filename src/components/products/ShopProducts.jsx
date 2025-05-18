@@ -170,6 +170,20 @@ const ShopProducts = ({ styles, products }) => {
                                         Đã bán: {product.sold || 0}
                                     </span>
                                 </div>
+                                
+                                {product.color && product.color.length > 0 && (
+                                    <div className="flex items-center mt-1 flex-wrap gap-1">
+                                        <span className="text-xs text-gray-500">Màu:</span>
+                                        {product.color.slice(0, 3).map((c, i) => (
+                                            <span key={i} className="text-xs bg-gray-100 px-1.5 py-0.5 rounded-full text-gray-600">
+                                                {c}
+                                            </span>
+                                        ))}
+                                        {product.color.length > 3 && (
+                                            <span className="text-xs text-gray-500">+{product.color.length - 3}</span>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {styles === 'grid' && (

@@ -38,6 +38,8 @@ const Details = () => {
     const imageContainerRef = useRef(null);
     const zoomContainerRef = useRef(null);
     const requestRef = useRef();
+    const [selectedColor, setSelectedColor] = useState(null);
+    const [selectedSize, setSelectedSize] = useState(null);
 
     useEffect(() => {
         dispatch(product_details(slug));
@@ -74,12 +76,26 @@ const Details = () => {
             navigate('/login');
             return;
         }
+        
+        // Kiểm tra nếu sản phẩm có màu sắc và kích thước
+        if (product.color && product.color.length > 0 && !selectedColor) {
+            toast.error('Vui lòng chọn màu sắc');
+            return;
+        }
+        
+        if (product.size && product.size.length > 0 && !selectedSize) {
+            toast.error('Vui lòng chọn kích thước');
+            return;
+        }
+        
         setIsLoading(true);
         try {
             await dispatch(add_to_card({
                 userId: userInfo.id,
                 quantity,
-                productId: product._id
+                productId: product._id,
+                color: selectedColor,
+                size: selectedSize
             }));
         } finally {
             setIsLoading(false);
@@ -115,18 +131,31 @@ const Details = () => {
             navigate('/login');
             return;
         }
+        
+        // Kiểm tra nếu sản phẩm có màu sắc và kích thước
+        if (product.color && product.color.length > 0 && !selectedColor) {
+            toast.error('Vui lòng chọn màu sắc');
+            return;
+        }
+        
+        if (product.size && product.size.length > 0 && !selectedSize) {
+            toast.error('Vui lòng chọn kích thước');
+            return;
+        }
 
         let price = product.discount !== 0 
             ? product.price - Math.floor((product.price * product.discount) / 100)
             : product.price;
 
         const obj = [{
-                sellerId: product.sellerId,
-                shopName: product.shopName,
+            sellerId: product.sellerId,
+            shopName: product.shopName,
             price: quantity * (price - Math.floor((price * 5) / 100)),
             products: [{
-                        quantity,
-                        productInfo: product
+                quantity,
+                productInfo: product,
+                color: selectedColor,
+                size: selectedSize
             }]
         }];
 
@@ -404,10 +433,67 @@ const Details = () => {
             </div>
 
                             <div className="border-t border-b py-3">
-                                <p className="text-sm text-gray-800 font-medium mt-2">
+                                <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                                    <span className="font-medium">Tình trạng:</span>
+                                    {product.stock > 0 ? (
+                                        <span className="text-green-500">Còn hàng ({product.stock})</span>
+                                    ) : (
+                                        <span className="text-red-500">Hết hàng</span>
+                                    )}
+                                    <span className="mx-2">|</span>
+                                    <span className="font-medium">Đã bán:</span>
+                                    <span>{product.sold || 0}</span>
+                                </div>
+                                <p className="text-sm text-gray-800 font-medium">
                                     Cửa hàng: <span className="text-red-500">{product.shopName}</span>
                                 </p>
-             </div>   
+                            </div>   
+
+                            {/* Màu sắc */}
+                            {product.color && product.color.length > 0 && (
+                                <div className="space-y-3 pt-3">
+                                    <h3 className="text-sm font-medium text-gray-900">Màu sắc</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {product.color.map((c, i) => (
+                                            <button
+                                                key={i}
+                                                type="button"
+                                                className={`px-3 py-1 rounded-full border text-sm ${
+                                                    selectedColor === c 
+                                                        ? 'border-red-500 text-red-500 bg-red-50' 
+                                                        : 'border-gray-300 text-gray-700 hover:border-red-300'
+                                                }`}
+                                                onClick={() => setSelectedColor(c)}
+                                            >
+                                                {c}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Kích thước */}
+                            {product.size && product.size.length > 0 && (
+                                <div className="space-y-3 pt-3">
+                                    <h3 className="text-sm font-medium text-gray-900">Kích thước</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {product.size.map((s, i) => (
+                                            <button
+                                                key={i}
+                                                type="button"
+                                                className={`px-3 py-1 rounded-full border text-sm ${
+                                                    selectedSize === s 
+                                                        ? 'border-red-500 text-red-500 bg-red-50' 
+                                                        : 'border-gray-300 text-gray-700 hover:border-red-300'
+                                                }`}
+                                                onClick={() => setSelectedSize(s)}
+                                            >
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="space-y-3">
                                 <div className="flex items-center gap-3">

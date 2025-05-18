@@ -26,6 +26,8 @@ const ProductDetail = () => {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isZoomed, setIsZoomed] = useState(false);
   const imageRef = useRef(null);
+  const [selectedColor, setSelectedColor] = useState(null);
+  const [selectedSize, setSelectedSize] = useState(null);
 
   useEffect(() => {
     dispatch(product_details(slug));
@@ -101,16 +103,54 @@ const ProductDetail = () => {
   const dec = () => { if (quantity > 1) setQuantity(q => q - 1); };
   const addCard = () => {
     if (userInfo) {
-      dispatch(add_to_card({ userId: userInfo.id, quantity, productId: product._id }));
+      if (product.color && product.color.length > 0 && !selectedColor) {
+        toast.error('Vui lòng chọn màu sắc');
+        return;
+      }
+      
+      if (product.size && product.size.length > 0 && !selectedSize) {
+        toast.error('Vui lòng chọn kích thước');
+        return;
+      }
+      
+      dispatch(add_to_card({ 
+        userId: userInfo.id, 
+        quantity, 
+        productId: product._id,
+        color: selectedColor,
+        size: selectedSize
+      }));
     } else navigate('/login');
   };
+  
   const addWishlist = () => {
     if (userInfo) {
-      dispatch(add_to_wishlist({ userId: userInfo.id, productId: product._id, name: product.name, price: product.price, image: product.images?.[0] || '', discount: product.discount, rating: product.rating, slug: product.slug }));
+      dispatch(add_to_wishlist({ 
+        userId: userInfo.id, 
+        productId: product._id, 
+        name: product.name, 
+        price: product.price, 
+        image: product.images?.[0] || '', 
+        discount: product.discount, 
+        rating: product.rating, 
+        slug: product.slug 
+      }));
     } else navigate('/login');
   };
+  
   const buyNow = () => {
     if (!userInfo) return navigate('/login');
+    
+    if (product.color && product.color.length > 0 && !selectedColor) {
+      toast.error('Vui lòng chọn màu sắc');
+      return;
+    }
+    
+    if (product.size && product.size.length > 0 && !selectedSize) {
+      toast.error('Vui lòng chọn kích thước');
+      return;
+    }
+    
     addCard();
     navigate('/shipping');
   };
@@ -218,6 +258,17 @@ const ProductDetail = () => {
             </div>
 
             <div className='space-y-2'>
+              <div className="flex items-center gap-4 text-sm text-gray-500">
+                <span className="font-medium text-gray-700">Tình trạng:</span>
+                {product.stock > 0 ? (
+                  <span className="text-green-500">Còn hàng ({product.stock})</span>
+                ) : (
+                  <span className="text-red-500">Hết hàng</span>
+                )}
+                <span className="mx-2">|</span>
+                <span className="font-medium text-gray-700">Đã bán:</span>
+                <span>{product.sold || 0}</span>
+              </div>
               <p className='text-gray-600 line-clamp-2'>
                 {product?.description 
                   ? (product.description.length > 200 
@@ -227,11 +278,58 @@ const ProductDetail = () => {
               </p>
               <div className='flex items-center gap-4 text-sm text-gray-500'>
                 <span>Thương hiệu: {product.brand}</span>
-                <span>Màu sắc: {product.color}</span>
+                <span>Màu sắc: {product.color?.join(', ') || 'Không có'}</span>
                 <span>Còn lại: {product.stock} sản phẩm</span>
               </div>
             </div>
           </div>
+
+          {/* Màu sắc */}
+          {product.color && product.color.length > 0 && (
+            <div className="space-y-3 pt-3">
+              <h3 className="text-sm font-medium text-gray-900">Màu sắc</h3>
+              <div className="flex flex-wrap gap-2">
+                {product.color.map((c, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`px-3 py-1 rounded-full border text-sm ${
+                      selectedColor === c 
+                        ? 'border-indigo-500 text-indigo-500 bg-indigo-50' 
+                        : 'border-gray-300 text-gray-700 hover:border-indigo-300'
+                    }`}
+                    onClick={() => setSelectedColor(c)}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Kích thước */}
+          {product.size && product.size.length > 0 && (
+            <div className="space-y-3 pt-3">
+              <h3 className="text-sm font-medium text-gray-900">Kích thước</h3>
+              <div className="flex flex-wrap gap-2">
+                {product.size.map((s, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`px-3 py-1 rounded-full border text-sm ${
+                      selectedSize === s 
+                        ? 'border-indigo-500 text-indigo-500 bg-indigo-50' 
+                        : 'border-gray-300 text-gray-700 hover:border-indigo-300'
+                    }`}
+                    onClick={() => setSelectedSize(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center space-x-4">
             <button onClick={dec} className="w-10 h-10 bg-gray-200 rounded hover:bg-gray-300">-</button>
             <span className="w-8 text-center">{quantity}</span>
