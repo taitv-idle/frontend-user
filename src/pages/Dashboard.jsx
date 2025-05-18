@@ -10,7 +10,8 @@ import {
     HiChatAlt2,
     HiLockClosed,
     HiLogout,
-    HiUser
+    HiUser,
+    HiLocationMarker
 } from 'react-icons/hi';
 import api from '../api/api';
 import { useDispatch, useSelector } from 'react-redux';
@@ -65,6 +66,7 @@ const Dashboard = () => {
         { path: '/dashboard', icon: HiHome, label: 'Bảng điều khiển' },
         { path: '/dashboard/my-orders', icon: HiShoppingBag, label: 'Đơn hàng của tôi' },
         { path: '/dashboard/my-wishlist', icon: HiHeart, label: 'Yêu thích' },
+        { path: '/dashboard/my-addresses', icon: HiLocationMarker, label: 'Địa chỉ giao hàng' },
         { path: '/dashboard/chat', icon: HiChatAlt2, label: 'Trò chuyện' },
         { path: '/dashboard/change-password', icon: HiLockClosed, label: 'Đổi mật khẩu' }
     ];
