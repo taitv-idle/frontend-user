@@ -7,20 +7,30 @@ import RatingReact from 'react-rating';
 import { FaStar } from 'react-icons/fa';
 import { CiStar } from 'react-icons/ci';
 import { useDispatch, useSelector } from 'react-redux';
-import { customer_review, get_reviews, messageClear, product_details } from '../store/reducers/homeReducer';
+import { customer_review, get_reviews, messageClear } from '../store/reducers/homeReducer';
 import toast from 'react-hot-toast';
+import { ClipLoader } from 'react-spinners';
 
 const Reviews = ({ product }) => {
     const dispatch = useDispatch();
     const parPage = 5;
     const [pageNumber, setPageNumber] = useState(1);
     const { userInfo } = useSelector(state => state.auth);
-    const { successMessage, reviews, rating_review, totalReview } = useSelector(state => state.home);
+    const { successMessage, reviews, rating_review, totalReview, reviewLoading } = useSelector(state => state.home);
     const [rat, setRat] = useState('');
     const [re, setRe] = useState('');
 
     const review_submit = (e) => {
         e.preventDefault();
+        if (!rat) {
+            toast.error('Vui lòng chọn số sao đánh giá');
+            return;
+        }
+        if (!re.trim()) {
+            toast.error('Vui lòng nhập nội dung đánh giá');
+            return;
+        }
+        
         const obj = {
             name: userInfo.name,
             review: re,
@@ -33,13 +43,11 @@ const Reviews = ({ product }) => {
     useEffect(() => {
         if (successMessage) {
             toast.success(successMessage);
-            dispatch(get_reviews({ productId: product._id, pageNumber, parPage }));
-            dispatch(product_details(product.slug));
             setRat('');
             setRe('');
             dispatch(messageClear());
         }
-    }, [successMessage, dispatch, product._id, product.slug, pageNumber, parPage]);
+    }, [successMessage, dispatch]);
 
     useEffect(() => {
         if (product._id) {
@@ -59,7 +67,7 @@ const Reviews = ({ product }) => {
                     <div className='flex text-3xl'>
                         <Rating ratings={product.rating} />
                     </div>
-                    <p className='text-sm text-slate-600'>({totalReview}) Reviews</p>
+                    <p className='text-sm text-slate-600'>({totalReview || 0}) Đánh giá</p>
                 </div>
 
                 {/* Biểu đồ tỷ lệ đánh giá */}
@@ -72,7 +80,7 @@ const Reviews = ({ product }) => {
                             <div className='w-[200px] h-[14px] bg-slate-200 relative'>
                                 <div
                                     style={{
-                                        width: `${Math.floor((100 * (rating_review[index]?.sum || 0)) / totalReview)}%`
+                                        width: `${totalReview > 0 ? Math.floor((100 * (rating_review[index]?.sum || 0)) / totalReview) : 0}%`
                                     }}
                                     className='h-full bg-[#Edbb0E]'
                                 ></div>
@@ -84,10 +92,13 @@ const Reviews = ({ product }) => {
             </div>
 
             {/* Danh sách review */}
-            <h2 className='text-slate-600 text-xl font-bold py-5'>Product Review ({totalReview})</h2>
+            <h2 className='text-slate-600 text-xl font-bold py-5'>Đánh giá sản phẩm ({totalReview || 0})</h2>
             <div className='flex flex-col gap-8 pb-10 pt-4'>
                 {reviews.map((r, i) => (
-                    <div key={i} className='flex flex-col gap-1'>
+                    <div 
+                        key={i} 
+                        className={`flex flex-col gap-1 p-4 rounded-lg ${i === 0 && reviewLoading === false && r.name === userInfo?.name ? 'bg-green-50 animate-pulse-once border border-green-100' : ''}`}
+                    >
                         <div className='flex justify-between items-center'>
                             <div className='flex gap-1 text-xl'>
                                 <RatingTemp rating={r.rating} />
@@ -98,6 +109,10 @@ const Reviews = ({ product }) => {
                         <p className='text-slate-600 text-sm'>{r.review}</p>
                     </div>
                 ))}
+
+                {reviews.length === 0 && (
+                    <p className="text-center text-gray-500 py-8">Chưa có đánh giá nào. Hãy là người đầu tiên đánh giá sản phẩm này!</p>
+                )}
 
                 {/* Pagination */}
                 <div className='flex justify-end'>
@@ -135,7 +150,19 @@ const Reviews = ({ product }) => {
                                 rows="5"
                             ></textarea>
                             <div className='mt-2'>
-                                <button className='py-1 px-5 bg-indigo-500 text-white rounded-sm'>Submit</button>
+                                <button
+                                    disabled={reviewLoading}
+                                    className='py-1 px-5 bg-indigo-500 text-white rounded-sm flex items-center gap-2 disabled:bg-indigo-300'
+                                >
+                                    {reviewLoading ? (
+                                        <>
+                                            <ClipLoader color="#ffffff" size={14} />
+                                            <span>Đang gửi...</span>
+                                        </>
+                                    ) : (
+                                        'Gửi đánh giá'
+                                    )}
+                                </button>
                             </div>
                         </form>
                     </div>

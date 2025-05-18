@@ -1,3 +1,17 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Animation cho đánh giá mới */
+@keyframes pulse-once {
+  0%, 100% {
+    background-color: rgba(240, 253, 244, 1); /* bg-green-50 */
+  }
+  50% {
+    background-color: rgba(220, 252, 231, 1); /* bg-green-100 */
+  }
+}
+
+.animate-pulse-once {
+  animation: pulse-once 2s ease-in-out;
+}

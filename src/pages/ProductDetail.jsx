@@ -187,7 +187,7 @@ const ProductDetail = () => {
         <div className="flex flex-col justify-start space-y-6">
           <div className="flex items-center space-x-4">
             <Rating ratings={product.rating} size="medium" />
-            <span className="text-sm text-gray-600">({product.totalReview || 0} đánh giá)</span>
+            <span className="text-sm text-gray-600">({product.rating || 0} sao)</span>
           </div>
           <div className="space-x-3">
             {product.discount > 0 && <span className="text-gray-400 line-through">{price}</span>}
@@ -294,7 +294,7 @@ const ProductDetail = () => {
             onClick={() => setTab('reviews')} 
             className={`py-3 px-6 ${tab === 'reviews' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-600'}`}
           >
-            Đánh giá ({product.totalReview || 0})
+            Đánh giá
           </button>
         </div>
         <div className="mt-6">

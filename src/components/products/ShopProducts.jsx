@@ -156,13 +156,18 @@ const ShopProducts = ({ styles, products }) => {
                                 </div>
 
                                 <div className="flex items-center justify-between mt-1">
-                                    <Rating
-                                        ratings={product.rating}
-                                        size="small"
-                                        className="space-x-0.5"
-                                    />
+                                    <div className="flex items-center">
+                                        <Rating
+                                            ratings={product.rating}
+                                            size="small"
+                                            className="space-x-0.5"
+                                        />
+                                        <span className="text-xs text-gray-600 ml-1">
+                                            ({product.rating || 0})
+                                        </span>
+                                    </div>
                                     <span className="text-xs text-gray-600">
-                                        ({product.sold || 0})
+                                        Đã bán: {product.sold || 0}
                                     </span>
                                 </div>
                             </div>

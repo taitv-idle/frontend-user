@@ -94,7 +94,14 @@ export const customer_review = createAsyncThunk(
             }
             
             const {data} = await api.post('/home/customer/submit-review', info);
-            return fulfillWithValue(data);
+            // Trả về cả thông tin đánh giá đã gửi để cập nhật UI ngay lập tức
+            return fulfillWithValue({
+                ...data,
+                reviewInfo: {
+                    ...info,
+                    date: new Date().toLocaleDateString('vi-VN', {year: 'numeric', month: 'long', day: 'numeric'})
+                }
+            });
         } catch (error) {
             console.log(error.response?.data || error.message);
             return rejectWithValue(error.response?.data || { message: 'Lỗi khi gửi đánh giá' });
@@ -158,7 +165,8 @@ export const homeReducer = createSlice({
         totalReview: 0,
         rating_review: [],
         reviews : [],
-        banners: [] 
+        banners: [],
+        reviewLoading: false
     },
     reducers : {
 
@@ -217,7 +225,12 @@ export const homeReducer = createSlice({
                 state.parPage = 12;
                 return;
             }
-            state.products = payload.products || [];
+            const products = (payload.products || []).map(product => ({
+                ...product,
+                numReviews: product.numReviews || 0
+            }));
+            
+            state.products = products;
             state.totalProduct = payload.totalProduct || 0;
             state.parPage = payload.parPage || 12; 
         })
@@ -245,11 +258,45 @@ export const homeReducer = createSlice({
             state.moreProducts = [];
             state.errorMessage = payload?.message || "Không tìm thấy sản phẩm";
         })
+        .addCase(customer_review.pending, (state) => {
+            state.reviewLoading = true;
+        })
         .addCase(customer_review.fulfilled, (state, { payload }) => {
             state.successMessage = payload.message;
+            state.reviewLoading = false;
+            
+            // Cập nhật UI ngay lập tức với đánh giá mới
+            if (payload.reviewInfo) {
+                // Thêm đánh giá mới vào đầu danh sách
+                state.reviews = [payload.reviewInfo, ...state.reviews];
+                // Tăng tổng số đánh giá
+                state.totalReview += 1;
+                
+                // Cập nhật phân phối đánh giá
+                const ratingValue = payload.reviewInfo.rating;
+                const ratingIndex = 5 - ratingValue; // Chuyển đổi từ giá trị rating (1-5) sang index (0-4)
+                if (state.rating_review[ratingIndex]) {
+                    state.rating_review[ratingIndex].sum += 1;
+                }
+                
+                // Cập nhật rating trung bình cho sản phẩm
+                if (state.product && state.product._id) {
+                    // Tính toán rating mới (đơn giản hóa, backend sẽ tính chính xác hơn)
+                    let totalRating = state.product.rating * (state.totalReview - 1);
+                    totalRating += ratingValue;
+                    const newRating = (totalRating / state.totalReview).toFixed(1);
+                    
+                    state.product = {
+                        ...state.product,
+                        rating: newRating,
+                        numReviews: state.totalReview
+                    };
+                }
+            }
         })
         .addCase(customer_review.rejected, (state, { payload }) => {
             state.errorMessage = payload?.message || 'Lỗi khi gửi đánh giá';
+            state.reviewLoading = false;
         })
         .addCase(get_reviews.fulfilled, (state, { payload }) => {
             if (!payload) {
@@ -261,6 +308,14 @@ export const homeReducer = createSlice({
             state.reviews = payload.reviews || [];
             state.totalReview = payload.totalReview || 0;
             state.rating_review = payload.rating_review || [];
+            
+            // Cập nhật số lượng đánh giá cho sản phẩm hiện tại
+            if (state.product && state.product._id) {
+                state.product = {
+                    ...state.product,
+                    numReviews: payload.totalReview || 0
+                };
+            }
         })
         .addCase(get_reviews.rejected, (state, { payload }) => {
             state.errorMessage = payload?.message || 'Lỗi khi tải đánh giá';

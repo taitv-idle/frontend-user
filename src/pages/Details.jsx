@@ -379,8 +379,8 @@ const Details = () => {
                                 <h1 className="text-2xl font-bold text-gray-900 mb-2">{product.name}</h1>
                                 <div className="flex items-center gap-3">
                                     <Rating ratings={product.rating} />
-                                    <span className="text-sm text-gray-500">({product.rating} đánh giá)</span>
-            </div>
+                                    <span className="text-sm text-gray-500">({product.rating || 0} sao)</span>
+                                </div>
           </div>
 
                             <div className="flex items-center gap-3">
@@ -404,7 +404,6 @@ const Details = () => {
             </div>
 
                             <div className="border-t border-b py-3">
-                                <p className="text-sm text-gray-600">{product.description}</p>
                                 <p className="text-sm text-gray-800 font-medium mt-2">
                                     Cửa hàng: <span className="text-red-500">{product.shopName}</span>
                                 </p>
