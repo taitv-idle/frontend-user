@@ -18,6 +18,7 @@ import {
     set_default_address,
     clearLocationData
 } from '../store/reducers/orderReducer';
+import { reset_count, clear_cart } from '../store/reducers/cardReducer';
 import { formatPrice } from '../utils/format';
 import { toast } from 'react-hot-toast';
 import { ClipLoader } from 'react-spinners';
@@ -265,17 +266,22 @@ const Shipping = () => {
         }
 
         setLoading(true);
+        toast.loading('Đang xử lý...', { id: 'shipping' });
 
         try {
             // Kiểm tra dữ liệu sản phẩm
             if (!products || !Array.isArray(products) || products.length === 0) {
                 toast.error('Không có sản phẩm trong giỏ hàng');
+                setLoading(false);
+                toast.dismiss('shipping');
                 return;
             }
 
             // Kiểm tra giá
             if (!price || price <= 0) {
                 toast.error('Giá sản phẩm không hợp lệ');
+                setLoading(false);
+                toast.dismiss('shipping');
                 return;
             }
 
@@ -302,7 +308,9 @@ const Shipping = () => {
                     quantity: product.quantity,
                     price: product.productInfo.price,
                     discount: product.productInfo.discount,
-                    shopId: shop.shopId
+                    shopId: shop.shopId,
+                    name: product.productInfo.name || 'Sản phẩm',
+                    image: product.productInfo.images?.[0] || ''
                 }))
             })).flatMap(shop => shop.products);
 
@@ -327,7 +335,26 @@ const Shipping = () => {
             // Kiểm tra kết quả
             if (!result || !result.orderId) {
                 toast.error('Có lỗi xảy ra khi tạo đơn hàng');
+                setLoading(false);
+                toast.dismiss('shipping');
                 return;
+            }
+
+            // Xóa giỏ hàng trên server
+            try {
+                await dispatch(clear_cart(userInfo.id)).unwrap();
+            } catch (cartError) {
+                console.error('Error clearing cart on server:', cartError);
+                // Không dừng quy trình nếu xóa giỏ hàng thất bại
+            }
+
+            // Xóa giỏ hàng trong localStorage
+            try {
+                dispatch(reset_count());
+                localStorage.removeItem('cartItems');
+                localStorage.removeItem('cartCount');
+            } catch (localStorageError) {
+                console.error('Error clearing local cart:', localStorageError);
             }
 
             // Lưu orderId vào localStorage để sử dụng sau khi thanh toán
@@ -360,6 +387,7 @@ const Shipping = () => {
             toast.error(errorMessage);
         } finally {
             setLoading(false);
+            toast.dismiss('shipping');
         }
     };
 

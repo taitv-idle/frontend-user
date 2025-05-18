@@ -48,6 +48,7 @@ function App() {
       <Route path='/product/:slug' element={<ProductDetail/>} />
       <Route path='/order/confirm?' element={<ConfirmOrder/>} /> 
       <Route path='/order-confirmation' element={<OrderConfirmation/>} />
+      <Route path='/order-confirmation/:orderId' element={<OrderConfirmation/>} />
 
       <Route path='/dashboard' element={<ProtectUser/>} >
       <Route path='' element={<Dashboard/>} >        

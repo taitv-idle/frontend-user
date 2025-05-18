@@ -46,7 +46,9 @@ export const place_order = createAsyncThunk(
                     quantity: item.quantity,
                     price: item.price,
                     discount: item.discount,
-                    shopId: item.shopId
+                    shopId: item.shopId,
+                    name: item.name || 'Sản phẩm',
+                    image: item.image || ''
                 })),
                 price: itemsPrice,
                 taxPrice: taxPrice || 0,
@@ -90,7 +92,7 @@ export const place_order = createAsyncThunk(
                         orderItems: orderItems.map(item => ({
                             productId: item.productId,
                             name: item.name || 'Sản phẩm',
-                            image: item.image || 'https://via.placeholder.com/150',
+                            image: item.image || '',
                             quantity: item.quantity,
                             price: item.price,
                             discount: item.discount,

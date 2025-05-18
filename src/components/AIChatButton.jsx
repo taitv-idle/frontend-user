@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import aiIcon from '../assets/ai-assistant.svg';
 import './AIChatButton.css';
 
 const AIChatButton = ({ onClick, chatType = 'openai' }) => {
@@ -39,7 +38,7 @@ const AIChatButton = ({ onClick, chatType = 'openai' }) => {
       className={`fixed bottom-8 left-8 z-50 flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-r ${getButtonGradient()} shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 ${pulseColor}`}
       aria-label="Open AI Chat"
     >
-      <img src={aiIcon} alt="AI Assistant" className="w-8 h-8 text-white" />
+      <img src="/images/aichatbot.png" alt="AI Assistant" className="w-8 h-8 text-white" />
       <span className="sr-only">AI Trợ lý</span>
     </button>
   );

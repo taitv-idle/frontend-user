@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import StripePayment from '../components/StripePayment';
 import { confirm_cod_payment } from '../store/reducers/orderReducer';
+import { reset_count, clear_cart } from '../store/reducers/cardReducer';
 import { FiCreditCard, FiTruck } from 'react-icons/fi';
 
 const Payment = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const dispatch = useDispatch();
+    const { userInfo } = useSelector(state => state.auth);
     const [orderData, setOrderData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [processingCod, setProcessingCod] = useState(false);
@@ -47,12 +49,35 @@ const Payment = () => {
         
         try {
             setProcessingCod(true);
+            const toastId = toast.loading('Đang xử lý thanh toán...');
             console.log('Processing COD payment for order:', orderData.orderId);
             
             // Gọi API xác nhận COD và unwrap kết quả
             const result = await dispatch(confirm_cod_payment(orderData.orderId)).unwrap();
             console.log('COD payment confirmation result:', result);
             
+            // Xóa giỏ hàng trên server
+            if (userInfo && userInfo.id) {
+                try {
+                    await dispatch(clear_cart(userInfo.id)).unwrap();
+                    console.log('Successfully cleared cart on server');
+                } catch (cartError) {
+                    console.error('Error clearing cart on server:', cartError);
+                    // Không dừng quy trình nếu xóa giỏ hàng thất bại
+                }
+            }
+            
+            // Xóa giỏ hàng sau khi đặt hàng COD thành công
+            try {
+                dispatch(reset_count());
+                localStorage.removeItem('cartItems');
+                localStorage.removeItem('cartCount');
+            } catch (error) {
+                console.error('Error clearing local cart:', error);
+            }
+            
+            // Hiển thị thông báo thành công
+            toast.dismiss(toastId);
             if (result && result.message) {
                 toast.success(result.message || 'Đặt hàng COD thành công!');
             } else {

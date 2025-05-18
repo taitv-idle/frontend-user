@@ -105,6 +105,58 @@ export const remove_wishlist = createAsyncThunk(
     }
 );
 
+// Xóa toàn bộ giỏ hàng
+export const clear_cart = createAsyncThunk(
+    'card/clear_cart',
+    async (userId, { rejectWithValue, dispatch, getState }) => {
+        try {
+            // Lấy danh sách sản phẩm trong giỏ hàng
+            const cartResponse = await api.get(`/home/product/get-card-product/${userId}`);
+            
+            if (!cartResponse.data.success) {
+                return rejectWithValue({ message: 'Không thể lấy danh sách giỏ hàng' });
+            }
+            
+            const cardProducts = cartResponse.data.data.card_products;
+            
+            // Nếu giỏ hàng trống, trả về thành công luôn
+            if (!cardProducts || cardProducts.length === 0) {
+                return {
+                    success: true,
+                    message: 'Giỏ hàng đã trống'
+                };
+            }
+            
+            // Danh sách các ID sản phẩm cần xóa
+            const cartItemIds = [];
+            
+            // Thu thập tất cả ID sản phẩm từ các cửa hàng
+            cardProducts.forEach(shop => {
+                shop.products.forEach(product => {
+                    cartItemIds.push(product._id);
+                });
+            });
+            
+            console.log('Xóa các sản phẩm từ giỏ hàng:', cartItemIds);
+            
+            // Xóa từng sản phẩm trong giỏ hàng
+            const deletePromises = cartItemIds.map(cardId => 
+                api.delete(`/home/product/delete-card-product/${cardId}`)
+            );
+            
+            await Promise.all(deletePromises);
+            
+            return {
+                success: true,
+                message: 'Giỏ hàng đã được xóa thành công'
+            };
+        } catch (error) {
+            console.error('Error clearing cart:', error);
+            return rejectWithValue(error.response?.data || { message: 'Lỗi khi xóa giỏ hàng' });
+        }
+    }
+);
+
 const cardReducer = createSlice({
     name: 'card',
     initialState: {
@@ -287,6 +339,24 @@ const cardReducer = createSlice({
                 } else {
                     state.errorMessage = payload.message;
                 }
+            })
+
+            // Clear cart
+            .addCase(clear_cart.pending, (state) => {
+                state.loading = true;
+                state.errorMessage = '';
+            })
+            .addCase(clear_cart.fulfilled, (state, { payload }) => {
+                state.loading = false;
+                state.card_products = [];
+                state.card_product_count = 0;
+                state.price = 0;
+                state.shipping_fee = 0;
+                state.successMessage = payload.message || 'Giỏ hàng đã được xóa';
+            })
+            .addCase(clear_cart.rejected, (state, { payload }) => {
+                state.loading = false;
+                state.errorMessage = payload?.message || 'Lỗi khi xóa giỏ hàng';
             });
     }
 });

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useStripe, useElements, CardElement, Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
+import { useDispatch, useSelector } from 'react-redux';
 import api from '../api/api';
 import { toast } from 'react-hot-toast';
+import { reset_count, clear_cart } from '../store/reducers/cardReducer';
 
 
 const STRIPE_PUBLISHABLE_KEY = 'pk_test_51NkKjoLGiNne9ofSvfgCBu4tSouG22SMn1vjKSFsEIzthLfm6PGAPp5Fk5rMjVqrEw5leYaCI3a2NTO1yHQyBmwb00k1Jj5137';
@@ -59,6 +61,8 @@ const ERROR_MESSAGES = {
 const CheckoutForm = ({ amount, orderId, onSuccess, disabled, recoveryMode, apiStatus }) => {
     const stripe = useStripe();
     const elements = useElements();
+    const dispatch = useDispatch();
+    const { userInfo } = useSelector(state => state.auth);
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState('');
     const [clientSecret, setClientSecret] = useState('');
@@ -336,6 +340,9 @@ const CheckoutForm = ({ amount, orderId, onSuccess, disabled, recoveryMode, apiS
 
         setProcessing(true);
         setError('');
+        
+        // Hiển thị thông báo đang xử lý
+        const loadingToastId = toast.loading('Đang xử lý thanh toán...');
 
         try {
             const paymentData = {
@@ -365,6 +372,7 @@ const CheckoutForm = ({ amount, orderId, onSuccess, disabled, recoveryMode, apiS
 
             if (stripeError) {
                 console.error('Stripe error during confirmation:', stripeError);
+                toast.dismiss(loadingToastId);
                 handleStripeError(stripeError);
                 return;
             }
@@ -381,9 +389,43 @@ const CheckoutForm = ({ amount, orderId, onSuccess, disabled, recoveryMode, apiS
                         throw new Error(data?.message || 'Xác nhận thanh toán thất bại');
                     }
                     
+                    // Xóa giỏ hàng trên server
+                    if (userInfo && userInfo.id) {
+                        try {
+                            await dispatch(clear_cart(userInfo.id)).unwrap();
+                            console.log('Successfully cleared cart on server');
+                        } catch (cartError) {
+                            console.error('Error clearing cart on server:', cartError);
+                            // Không dừng quy trình nếu xóa giỏ hàng thất bại
+                        }
+                    }
+                    
+                    // Xóa giỏ hàng sau khi thanh toán thành công
+                    try {
+                        // Dispatch reset_count để cập nhật Redux store
+                        dispatch(reset_count());
+                        
+                        // Xóa dữ liệu giỏ hàng từ localStorage
+                        localStorage.removeItem('cartItems');
+                        localStorage.removeItem('cartCount');
+                    } catch (error) {
+                        console.error('Error clearing local cart:', error);
+                    }
+                    
+                    // Hủy toast đang xử lý và hiển thị thành công
+                    toast.dismiss(loadingToastId);
                     toast.success('Thanh toán thành công!');
-                    window.location.href = `/order-confirmation/${orderId}`;
+                    
+                    // Chuyển hướng sang trang xác nhận đơn hàng với orderId
+                    if (orderId) {
+                        // Chuyển hướng đến trang xác nhận đơn hàng với orderId
+                        window.location.href = `/order-confirmation/${orderId}`;
+                    } else {
+                        // Fallback nếu không có orderId
+                        window.location.href = '/dashboard/my-orders';
+                    }
                 } catch (confirmError) {
+                    toast.dismiss(loadingToastId);
                     console.error('Error confirming payment with backend:', confirmError);
                     if (confirmError.response?.status === 401 || confirmError.response?.status === 403) {
                         setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
@@ -394,13 +436,16 @@ const CheckoutForm = ({ amount, orderId, onSuccess, disabled, recoveryMode, apiS
                     }
                 }
             } else if (paymentIntent.status === 'requires_action') {
+                toast.dismiss(loadingToastId);
                 console.log('Waiting for 3D Secure verification...');
                 toast.loading('Đang xác thực thanh toán...');
             } else {
+                toast.dismiss(loadingToastId);
                 console.log('Unexpected payment status:', paymentIntent.status);
                 toast.error('Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại.');
             }
         } catch (err) {
+            toast.dismiss(loadingToastId);
             console.error('Error during payment confirmation:', err);
             if (err.message === 'Payment confirmation timeout') {
                 setError('Xác nhận thanh toán quá thời gian. Vui lòng thử lại.');
