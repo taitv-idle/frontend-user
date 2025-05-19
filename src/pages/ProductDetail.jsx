@@ -28,6 +28,11 @@ const ProductDetail = () => {
   const imageRef = useRef(null);
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
+  
+  // Xử lý dữ liệu màu sắc và kích thước
+  const [processedColors, setProcessedColors] = useState([]);
+  const [processedSizes, setProcessedSizes] = useState([]);
+  const [processedTags, setProcessedTags] = useState([]);
 
   useEffect(() => {
     dispatch(product_details(slug));
@@ -43,6 +48,128 @@ const ProductDetail = () => {
       dispatch(messageClear());
     }
   }, [successMessage, cardError, dispatch]);
+
+  useEffect(() => {
+    if (product) {
+      // Hàm xử lý đơn giản để trích xuất dữ liệu từ chuỗi phức tạp
+      const parseNestedData = (input) => {
+        // Nếu không có dữ liệu, trả về mảng rỗng
+        if (!input) return [];
+        
+        try {
+          // Nếu là mảng với 1 phần tử (trường hợp từ API)
+          if (Array.isArray(input) && input.length === 1) {
+            const rawStr = input[0];
+            
+            // Nếu là chuỗi JSON, thử parse
+            if (typeof rawStr === 'string') {
+              try {
+                // Thử parse chuỗi JSON
+                const parsed = JSON.parse(rawStr.replace(/\\/g, ''));
+                if (Array.isArray(parsed)) {
+                  return parsed;
+                }
+              } catch (e) {
+                // Nếu không parse được, thử cách khác
+                console.log("First parse failed:", e);
+              }
+              
+              // Xử lý thủ công
+              return rawStr
+                .replace(/\[|\]/g, '')  // Loại bỏ [ ]
+                .replace(/\\"/g, '')    // Loại bỏ \"
+                .replace(/"/g, '')      // Loại bỏ "
+                .split(',')             // Tách theo dấu phẩy
+                .map(s => s.trim())     // Loại bỏ khoảng trắng
+                .filter(s => s);        // Loại bỏ chuỗi rỗng
+            }
+          }
+          
+          // Trường hợp là chuỗi đơn
+          if (typeof input === 'string') {
+            return input
+              .replace(/\[|\]/g, '')
+              .replace(/\\"/g, '')
+              .replace(/"/g, '')
+              .split(',')
+              .map(s => s.trim())
+              .filter(s => s);
+          }
+          
+          // Trường hợp là mảng thông thường
+          if (Array.isArray(input)) {
+            return input;
+          }
+        } catch (e) {
+          console.error("Error parsing data:", e);
+        }
+        
+        return [];
+      };
+      
+      // Xử lý màu sắc
+      try {
+        const colors = parseNestedData(product.color);
+        console.log("Extracted colors:", colors);
+        setProcessedColors(colors);
+      } catch (e) {
+        console.error("Error processing colors:", e);
+        setProcessedColors([]);
+      }
+      
+      // Xử lý kích thước
+      try {
+        const sizes = parseNestedData(product.size);
+        console.log("Extracted sizes:", sizes);
+        setProcessedSizes(sizes);
+      } catch (e) {
+        console.error("Error processing sizes:", e);
+        setProcessedSizes([]);
+      }
+      
+      // Xử lý tags
+      try {
+        const tags = parseNestedData(product.tags);
+        console.log("Extracted tags:", tags);
+        setProcessedTags(tags);
+      } catch (e) {
+        console.error("Error processing tags:", e);
+        setProcessedTags([]);
+      }
+    }
+  }, [product]);
+
+  // Thêm useEffect để log khi processedTags thay đổi
+  useEffect(() => {
+    console.log('Final processed tags:', processedTags);
+    
+    // Kiểm tra chi tiết từng properties của product
+    if (product) {
+      console.log('Product object keys:', Object.keys(product));
+      console.log('Product tags direct access:', product.tags);
+      
+      // Kiểm tra xem product có từ API trả về có chứa trường tags không
+      const productStr = JSON.stringify(product);
+      console.log('Product contains tags keyword:', productStr.includes('tags'));
+      console.log('Product contains "tags":', productStr.includes('"tags"'));
+      
+      // Hiển thị toàn bộ product để kiểm tra
+      console.log('Full product object:', product);
+    }
+  }, [processedTags, product]);
+
+  // Effect riêng biệt để đặt giá trị mặc định
+  useEffect(() => {
+    if (processedColors.length > 0 && !selectedColor) {
+      setSelectedColor(processedColors[0]);
+    }
+  }, [processedColors, selectedColor]);
+
+  useEffect(() => {
+    if (processedSizes.length > 0 && !selectedSize) {
+      setSelectedSize(processedSizes[0]);
+    }
+  }, [processedSizes, selectedSize]);
 
   useEffect(() => {
     if (product && product._id) {
@@ -77,6 +204,18 @@ const ProductDetail = () => {
     setZoomLevel(isZoomed ? 1 : 2);
   };
 
+  // Hiển thị trong console để debug
+  useEffect(() => {
+    if (product) {
+      console.log("Current product data:", {
+        shopName: product.shopName,
+        tags: processedTags,
+        colors: processedColors,
+        sizes: processedSizes
+      });
+    }
+  }, [product, processedTags, processedColors, processedSizes]);
+
   if (!product && !errorMessage) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -103,12 +242,12 @@ const ProductDetail = () => {
   const dec = () => { if (quantity > 1) setQuantity(q => q - 1); };
   const addCard = () => {
     if (userInfo) {
-      if (product.color && product.color.length > 0 && !selectedColor) {
+      if (processedColors.length > 0 && !selectedColor) {
         toast.error('Vui lòng chọn màu sắc');
         return;
       }
       
-      if (product.size && product.size.length > 0 && !selectedSize) {
+      if (processedSizes.length > 0 && !selectedSize) {
         toast.error('Vui lòng chọn kích thước');
         return;
       }
@@ -141,12 +280,12 @@ const ProductDetail = () => {
   const buyNow = () => {
     if (!userInfo) return navigate('/login');
     
-    if (product.color && product.color.length > 0 && !selectedColor) {
+    if (processedColors.length > 0 && !selectedColor) {
       toast.error('Vui lòng chọn màu sắc');
       return;
     }
     
-    if (product.size && product.size.length > 0 && !selectedSize) {
+    if (processedSizes.length > 0 && !selectedSize) {
       toast.error('Vui lòng chọn kích thước');
       return;
     }
@@ -276,20 +415,72 @@ const ProductDetail = () => {
                       : product.description)
                   : 'Chưa có mô tả sản phẩm'}
               </p>
-              <div className='flex items-center gap-4 text-sm text-gray-500'>
-                <span>Thương hiệu: {product.brand}</span>
-                <span>Màu sắc: {product.color?.join(', ') || 'Không có'}</span>
-                <span>Còn lại: {product.stock} sản phẩm</span>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm border-t border-gray-100 pt-2 mt-2'>
+                <div className='flex items-center gap-2'>
+                  <span className="font-medium text-gray-700">Thương hiệu:</span>
+                  <span className="text-gray-600">{product.brand || 'Không có'}</span>
+                </div>
+                <div className='flex items-center gap-2'>
+                  <span className="font-medium text-gray-700">Còn lại:</span>
+                  <span className="text-gray-600">{product.stock} sản phẩm</span>
+                </div>
+                <div className='flex items-center gap-2'>
+                  <span className="font-medium text-gray-700">Cửa hàng:</span>
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                    <Link 
+                      to={`/shop/${product.sellerId}`} 
+                      className="text-indigo-600 hover:text-indigo-800 transition-colors font-medium"
+                    >
+                      {product.shopName}
+                    </Link>
+                  </div>
+                </div>
               </div>
+              
+              {/* Debug Info - Chỉ hiển thị trong development */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="bg-yellow-50 p-2 rounded-lg my-2 text-xs">
+                  <p>Debug Info:</p>
+                  <p>Colors: {JSON.stringify(processedColors)}</p>
+                  <p>Sizes: {JSON.stringify(processedSizes)}</p>
+                  <p>Tags: {JSON.stringify(processedTags)}</p>
+                  <p>Raw color: {JSON.stringify(product.color)}</p>
+                  <p>Raw shop: {product.shopName}</p>
+                </div>
+              )}
+              
+              {/* Tags của sản phẩm */}
+              {processedTags && processedTags.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                  <span className="font-medium text-gray-700">Tags:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {processedTags.map((tag, index) => (
+                      <Link 
+                        key={`tag-${index}`}
+                        to={`/products/search?tag=${encodeURIComponent(tag)}`}
+                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 px-2 py-1 rounded-md text-xs transition-colors"
+                      >
+                        #{tag}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Màu sắc */}
-          {product.color && product.color.length > 0 && (
-            <div className="space-y-3 pt-3">
-              <h3 className="text-sm font-medium text-gray-900">Màu sắc</h3>
+          {processedColors.length > 0 && (
+            <div className="space-y-3 pt-3 border-t border-gray-100">
+              <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                <span className="inline-block w-3 h-3 bg-indigo-500 rounded-full"></span>
+                Màu sắc
+              </h3>
               <div className="flex flex-wrap gap-2">
-                {product.color.map((c, i) => (
+                {processedColors.map((c, i) => (
                   <button
                     key={i}
                     type="button"
@@ -308,11 +499,14 @@ const ProductDetail = () => {
           )}
 
           {/* Kích thước */}
-          {product.size && product.size.length > 0 && (
-            <div className="space-y-3 pt-3">
-              <h3 className="text-sm font-medium text-gray-900">Kích thước</h3>
+          {processedSizes.length > 0 && (
+            <div className="space-y-3 pt-3 border-t border-gray-100">
+              <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                <span className="inline-block w-3 h-3 bg-indigo-500 rounded-full"></span>
+                Kích thước
+              </h3>
               <div className="flex flex-wrap gap-2">
-                {product.size.map((s, i) => (
+                {processedSizes.map((s, i) => (
                   <button
                     key={i}
                     type="button"
@@ -427,6 +621,57 @@ const ProductDetail = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {(relatedProducts || []).map((product) => {
             const { price, discountedPrice, discount } = formatPriceWithDiscount(product.price, product.discount);
+            
+            // Xử lý tags cho sản phẩm liên quan
+            const parseNestedData = (input) => {
+              if (!input) return [];
+              
+              try {
+                if (Array.isArray(input) && input.length === 1) {
+                  const rawStr = input[0];
+                  
+                  if (typeof rawStr === 'string') {
+                    try {
+                      const parsed = JSON.parse(rawStr.replace(/\\/g, ''));
+                      if (Array.isArray(parsed)) {
+                        return parsed;
+                      }
+                    } catch (e) {
+                      // Xử lý thủ công
+                    }
+                    
+                    return rawStr
+                      .replace(/\[|\]/g, '')
+                      .replace(/\\"/g, '')
+                      .replace(/"/g, '')
+                      .split(',')
+                      .map(s => s.trim())
+                      .filter(s => s);
+                  }
+                }
+                
+                if (typeof input === 'string') {
+                  return input
+                    .replace(/\[|\]/g, '')
+                    .replace(/\\"/g, '')
+                    .replace(/"/g, '')
+                    .split(',')
+                    .map(s => s.trim())
+                    .filter(s => s);
+                }
+                
+                if (Array.isArray(input)) {
+                  return input;
+                }
+              } catch (e) {
+                console.error("Error parsing related product data:", e);
+              }
+              
+              return [];
+            };
+            
+            const productTags = parseNestedData(product.tags);
+            
             return (
               <div key={product._id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 <Link to={`/product-details/${product.slug}`}>
@@ -447,6 +692,30 @@ const ProductDetail = () => {
                         </span>
                       )}
                     </div>
+                    
+                    {/* Tags trên sản phẩm liên quan */}
+                    {productTags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {productTags.slice(0, 2).map((tag, i) => (
+                          <span key={i} className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs">
+                            #{tag}
+                          </span>
+                        ))}
+                        {productTags.length > 2 && (
+                          <span className="text-gray-500 text-xs">+{productTags.length - 2}</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Tên cửa hàng */}
+                    {product.shopName && (
+                      <div className="mt-2 text-xs text-gray-500 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                        </svg>
+                        {product.shopName}
+                      </div>
+                    )}
                   </div>
                 </Link>
               </div>

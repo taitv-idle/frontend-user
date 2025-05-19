@@ -5,8 +5,6 @@ import 'react-multi-carousel/lib/styles.css';
 import { useDispatch, useSelector } from 'react-redux';
 import { get_banners } from '../store/reducers/homeReducer';
 
-// Note: Optimal banner image dimensions should be 1920x720px (16:9 aspect ratio)
-// or 2560x960px (for higher resolution displays)
 
 const CarouselArrow = ({ onClick, left }) => (
     <button
