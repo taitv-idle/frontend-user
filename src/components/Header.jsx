@@ -296,7 +296,7 @@ const Header = () => {
                             </div>
 
                             <div className={`${categoryShow ? 'h-0' : 'h-[400px]'} overflow-hidden transition-all md-lg:relative duration-500 absolute z-[99999] bg-white w-full border border-gray-100 rounded-b-md shadow-lg`}>
-                                <ul className='py-2'>
+                                <ul className='py-2 max-h-[400px] overflow-y-auto custom-scrollbar'>
                                     {categorys.map((c, i) => (
                                         <li key={i} className='flex justify-start items-center gap-3 px-5 py-2 hover:bg-gray-50 transition-colors'>
                                             <img src={c.image} className='w-[30px] h-[30px] rounded-full overflow-hidden object-cover' alt={c.name} />

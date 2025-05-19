@@ -22,9 +22,9 @@ const Categorys = () => {
     }
 
     return (
-        <section className="w-full py-12 lg:py-16 bg-gradient-to-b from-white to-rose-50/20">
+        <section className="w-full py-10 lg:py-14 bg-gradient-to-b from-white to-rose-50/20">
             <div className="container mx-auto px-4 sm:px-6">
-                <div className="text-center mb-12">
+                <div className="text-center mb-10">
                     <h2 className="text-3xl md:text-4xl font-bold text-gray-800 relative inline-block group">
                         Danh Mục Nổi Bật
                         <span className="absolute bottom-0 left-1/2 w-24 h-1 bg-rose-500 transform -translate-x-1/2 translate-y-2 opacity-0 group-hover:opacity-100 group-hover:translate-y-3 transition-all duration-300"></span>
@@ -49,9 +49,9 @@ const Categorys = () => {
                             <Link
                                 key={i}
                                 to={`/products?category=${c.name}`}
-                            className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-all flex flex-col items-center p-4"
+                            className="group bg-white rounded-2xl transition-all flex flex-col items-center p-4 hover:bg-rose-50/20"
                             >
-                            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden bg-gray-50 flex items-center justify-center mb-4 border-2 border-rose-100 group-hover:border-rose-400 transition-all">
+                            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden bg-gray-50 flex items-center justify-center mb-4 border-2 border-gray-100 group-hover:border-rose-300 transition-all">
                                         <img
                                             src={c.image}
                                             alt={c.name}
