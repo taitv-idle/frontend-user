@@ -422,7 +422,7 @@ const Card = () => {
                                                 Miễn phí vận chuyển cho đơn hàng trên 500.000₫
                                             </p>
                                             <p className='text-xs text-gray-500 text-center'>
-                                                Phí vận chuyển: 40.000₫ cho đơn hàng dưới 500.000₫
+                                                Phí vận chuyển: 40.000₫/cửa hàng cho đơn hàng dưới 500.000₫
                                             </p>
                                             <p className='text-xs text-gray-500 text-center'>
                                                 Thời gian giao hàng dự kiến: 2-4 ngày làm việc

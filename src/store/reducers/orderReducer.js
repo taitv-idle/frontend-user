@@ -223,9 +223,25 @@ export const get_order_details = createAsyncThunk(
     async (orderId, { rejectWithValue }) => {
         try {
             const { data } = await api.get(`/home/coustomer/get-order-details/${orderId}`);
+            console.log('Order details data from API:', data);
+            
+            // Ensure data structure has expected format, add any needed transformations
+            if (data.order) {
+                // Format suborder data if available
+                if (data.order.suborder && Array.isArray(data.order.suborder)) {
+                    data.order.suborder = data.order.suborder.map(suborder => ({
+                        ...suborder,
+                        // Add other transformations as needed
+                    }));
+                }
+            }
+            
             return data;
         } catch (error) {
-            return rejectWithValue(error.response.data);
+            console.error('Error fetching order details:', error);
+            return rejectWithValue(error.response?.data || { 
+                message: 'Không thể tải thông tin đơn hàng' 
+            });
         }
     }
 );
@@ -272,21 +288,10 @@ export const get_wards = createAsyncThunk(
 // Tính phí vận chuyển
 export const calculate_shipping_fee = createAsyncThunk(
     'order/calculate_shipping_fee',
-    async (price, { rejectWithValue }) => {
-        try {
-            // Nếu đơn hàng trên 500k thì miễn phí vận chuyển
-            // Nếu không thì phí vận chuyển là 40k
-            const fee = price >= 500 ? 0 : 40;
-            const isFree = fee === 0;
-
-            return {
-                fee,
-                isFree,
-                price
-            };
-        } catch (error) {
-            return rejectWithValue(error.response.data);
-        }
+    async (fee) => {
+        // Nếu đơn hàng trên 500k thì miễn phí vận chuyển
+        // Nếu không thì phí vận chuyển là 20k (thay vì 40k)
+        return { fee };
     }
 );
 
@@ -745,23 +750,21 @@ const orderReducer = createSlice({
             })
             .addCase(get_orders.fulfilled, (state, { payload }) => {
                 state.loading = false;
-                state.myOrders = payload.orders || [];
-                
-                // Handle pagination data
+                state.myOrders = payload.orders;
                 if (payload.pagination) {
-                    state.pagination = {
-                        currentPage: payload.pagination.currentPage || 1,
-                        totalPages: payload.pagination.totalPages || 1,
-                        totalOrders: payload.pagination.totalOrders || 0,
-                        perPage: payload.pagination.perPage || 10
-                    };
+                    state.pagination = payload.pagination;
                 }
                 
-                state.errorMessage = '';
+                // Debug logging for suborders
+                console.log('Orders loaded with count:', payload.orders.length);
+                const ordersWithSuborders = payload.orders.filter(order => 
+                    order.suborder && Array.isArray(order.suborder) && order.suborder.length > 0
+                );
+                console.log('Orders with suborders:', ordersWithSuborders.length);
             })
             .addCase(get_orders.rejected, (state, { payload }) => {
                 state.loading = false;
-                state.errorMessage = payload?.message || 'Lỗi khi lấy danh sách đơn hàng';
+                state.errorMessage = payload?.message || 'Lỗi khi tải danh sách đơn hàng';
             })
             .addCase(get_order_details.pending, (state) => {
                 state.loading = true;
@@ -769,12 +772,17 @@ const orderReducer = createSlice({
             })
             .addCase(get_order_details.fulfilled, (state, { payload }) => {
                 state.loading = false;
-                state.myOrder = payload.order || {};
-                state.errorMessage = '';
+                state.myOrder = payload.order;
+                
+                // Debug logging
+                console.log('Order details saved to state:', payload.order);
+                if (payload.order?.suborder) {
+                    console.log('Suborder count:', payload.order.suborder.length);
+                }
             })
             .addCase(get_order_details.rejected, (state, { payload }) => {
                 state.loading = false;
-                state.errorMessage = payload?.message || 'Lỗi khi lấy thông tin đơn hàng';
+                state.errorMessage = payload?.message || 'Lỗi khi tải thông tin đơn hàng';
             })
             .addCase(get_order_statuses.fulfilled, (state, { payload }) => {
                 state.orderStatuses = {

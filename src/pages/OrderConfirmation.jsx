@@ -524,10 +524,10 @@ const OrderConfirmation = () => {
                         <div className="flex justify-between">
                             <p className="text-gray-600">Phí vận chuyển:</p>
                             <p className="font-medium">
-                                {shippingPrice === 0 ? (
+                                {orderDetails?.shipping_fee === 0 ? (
                                     <span className="text-green-600">Miễn phí</span>
                                 ) : (
-                                    formatPrice(shippingPrice)
+                                    formatPrice(orderDetails?.shipping_fee || shippingPrice)
                                 )}
                             </p>
                         </div>
@@ -535,12 +535,12 @@ const OrderConfirmation = () => {
                         <div className="flex justify-between text-base font-medium">
                             <span>Tổng cộng:</span>
                             <span className="text-red-500">
-                                {formatPrice(totalItemsPrice + shippingPrice)}
+                                {formatPrice(totalItemsPrice + (orderDetails?.shipping_fee || shippingPrice))}
                             </span>
                         </div>
                         {totalItemsPrice < 500000 && (
                             <p className="text-xs text-gray-500 mt-2">
-                                * Đơn hàng trên 500.000đ sẽ được miễn phí vận chuyển
+                                * Phí vận chuyển: 40.000₫/cửa hàng. Đơn hàng trên 500.000đ sẽ được miễn phí vận chuyển.
                             </p>
                         )}
                     </div>

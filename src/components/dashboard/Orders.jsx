@@ -413,6 +413,127 @@ const Orders = () => {
     const actualTotalPages = Math.ceil(sortedOrders.length / ordersPerPage);
     const displayTotalPages = Math.max(totalPages, actualTotalPages);
 
+    const renderMobileOrders = () => {
+        if (loading && myOrders.length === 0) {
+            return (
+                <div className="flex justify-center items-center py-20">
+                    <ClipLoader color="#ef4444" size={30} />
+                </div>
+            );
+        }
+
+        if (myOrders.length === 0) {
+            return (
+                <div className="text-center py-10">
+                    <p className="text-gray-500">Không tìm thấy đơn hàng nào</p>
+                    <Link
+                        to="/shops"
+                        className="mt-4 inline-block px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                    >
+                        Tiếp tục mua sắm
+                    </Link>
+                </div>
+            );
+        }
+
+        const displayOrders = isSearching && searchQuery
+            ? myOrders.filter(order => {
+                // Search by order ID
+                if (order._id && order._id.toLowerCase().includes(searchQuery.toLowerCase())) return true;
+                // Search by product name
+                if (order.products) {
+                    return order.products.some(product => 
+                        product.productId && 
+                        typeof product.productId === 'object' && 
+                        product.productId.name && 
+                        product.productId.name.toLowerCase().includes(searchQuery.toLowerCase())
+                    );
+                }
+                return false;
+            })
+            : myOrders;
+
+        if (isSearching && displayOrders.length === 0) {
+            return (
+                <div className="text-center py-10">
+                    <p className="text-gray-500">Không tìm thấy đơn hàng phù hợp với "{searchQuery}"</p>
+                    <button
+                        onClick={() => {
+                            setSearchQuery('');
+                            setIsSearching(false);
+                        }}
+                        className="mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                        Xóa tìm kiếm
+                    </button>
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-4">
+                {displayOrders.map((order) => {
+                    return (
+                        <div 
+                            key={order._id} 
+                            className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+                        >
+                            <div className="p-4">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div>
+                                        <h3 className="text-sm font-medium">
+                                            #{order._id.slice(-8).toUpperCase()}
+                                        </h3>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            {formatDate(order.createdAt || order.date)}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <div className="flex items-center">
+                                            {getStatusIcon(order.delivery_status)}
+                                            <span className="text-xs font-medium">{getStatusText(order.delivery_status)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(order.payment_status)}`}>
+                                        {getPaymentStatusText(order.payment_status, order.payment_method)}
+                                    </span>
+                                </div>
+                                
+                                <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
+                                    <div className="text-sm">
+                                        <span className="text-gray-600">Tổng: </span>
+                                        <span className="font-medium text-red-600">{formatPrice(order.price)}</span>
+                                    </div>
+                                    
+                                    <div className="flex space-x-2">
+                                        {order.payment_status === 'unpaid' && (
+                                            <button
+                                                onClick={() => redirectToPayment(order)}
+                                                className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs"
+                                            >
+                                                Thanh toán
+                                            </button>
+                                        )}
+                                        <Link
+                                            to={`/dashboard/order/${order._id}`}
+                                            className="px-3 py-1 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors text-xs flex items-center"
+                                        >
+                                            Chi tiết
+                                            <FiChevronRight className="ml-1" />
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
     return (
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -586,46 +707,49 @@ const Orders = () => {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {paginatedOrders.map((order) => (
-                                    <tr key={order._id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            #{order._id.slice(-8).toUpperCase()}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {formatDate(order.createdAt)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {formatPrice(order.price)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(order.payment_status)}`}>
-                                                {getPaymentStatusText(order.payment_status, order.payment_method)}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            <div className="flex items-center">
-                                                {getStatusIcon(order.delivery_status)}
-                                                <span className="capitalize">{getStatusText(order.delivery_status)}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                            <Link
-                                                to={`/dashboard/order/details/${order._id}`}
-                                                className="text-red-600 hover:text-red-800 hover:underline"
-                                            >
-                                                Chi tiết
-                                            </Link>
-                                            {order.payment_status !== 'paid' && (
-                                                <button
-                                                    onClick={() => redirectToPayment(order)}
-                                                    className="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded-md text-sm font-medium transition-colors"
+                                {paginatedOrders.map((order) => {
+                                    return (
+                                        <tr key={order._id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                #{order._id.slice(-8).toUpperCase()}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {formatDate(order.createdAt)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {formatPrice(order.price)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(order.payment_status)}`}>
+                                                    {getPaymentStatusText(order.payment_status, order.payment_method)}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <div className="flex items-center">
+                                                    {getStatusIcon(order.delivery_status)}
+                                                    <span className="capitalize">{getStatusText(order.delivery_status)}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                                <Link
+                                                    to={`/dashboard/order/${order._id}`}
+                                                    className="text-indigo-600 hover:text-indigo-900 flex items-center"
                                                 >
-                                                    Thanh toán
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
+                                                    Chi tiết
+                                                    <FiChevronRight className="ml-1" />
+                                                </Link>
+                                                {order.payment_status !== 'paid' && (
+                                                    <button
+                                                        onClick={() => redirectToPayment(order)}
+                                                        className="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded-md text-sm font-medium transition-colors"
+                                                    >
+                                                        Thanh toán
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -661,6 +785,11 @@ const Orders = () => {
                     )}
                 </>
             )}
+
+            {/* Mobile View */}
+            <div className="mt-6 md:hidden">
+                {renderMobileOrders()}
+            </div>
         </div>
     );
 };
