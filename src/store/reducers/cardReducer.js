@@ -6,7 +6,16 @@ export const add_to_card = createAsyncThunk(
     'card/add_to_card',
     async (info, { rejectWithValue }) => {
         try {
-            const response = await api.post('/home/product/add-to-card', info);
+            // Đảm bảo color và size là chuỗi đơn và không được null hoặc undefined
+            const modifiedInfo = {
+                ...info,
+                color: Array.isArray(info.color) ? info.color[0] : (info.color || "Mặc định"),
+                size: Array.isArray(info.size) ? info.size[0] : (info.size || "Mặc định")
+            };
+            
+            console.log("Sending add_to_card request with modified data:", modifiedInfo);
+            const response = await api.post('/home/product/add-to-card', modifiedInfo);
+            console.log("add_to_card response:", response.data);
             return response.data;
         } catch (error) {
             console.log('Error response:', error);
@@ -22,6 +31,7 @@ export const get_card_products = createAsyncThunk(
     async (userId, { rejectWithValue }) => {
         try {
             const response = await api.get(`/home/product/get-card-product/${userId}`);
+            console.log("get_card_products response:", response.data);
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data);

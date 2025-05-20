@@ -319,6 +319,18 @@ const OrderDetails = () => {
                                     <p className="text-sm text-gray-500 mt-1">
                                         Số lượng: {product.quantity || 0}
                                     </p>
+                                    <div className="flex flex-wrap gap-2 text-xs text-gray-500 mt-1">
+                                        {product.color && (
+                                            <span className="px-2 py-1 bg-gray-100 rounded-md">
+                                                Màu: <span className="font-medium">{product.color}</span>
+                                            </span>
+                                        )}
+                                        {product.size && (
+                                            <span className="px-2 py-1 bg-gray-100 rounded-md">
+                                                Size: <span className="font-medium">{product.size}</span>
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="text-right">
                                     <div className="flex flex-col items-end">

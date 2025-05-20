@@ -88,15 +88,29 @@ const Details = () => {
             return;
         }
         
+        // Đảm bảo luôn có color và size, theo yêu cầu của backend
+        const finalColor = selectedColor || "Mặc định";
+        const finalSize = selectedSize || "Mặc định";
+        
+        // Debug: Log the data being sent to the cart
+        console.log("Adding to cart with color:", finalColor);
+        console.log("Adding to cart with size:", finalSize);
+        
         setIsLoading(true);
         try {
-            await dispatch(add_to_card({
+            // Đảm bảo màu sắc và kích thước là chuỗi đơn
+            const selectedColorString = finalColor instanceof Array ? finalColor[0] : finalColor;
+            const selectedSizeString = finalSize instanceof Array ? finalSize[0] : finalSize;
+            
+            const cartData = {
                 userId: userInfo.id,
                 quantity,
                 productId: product._id,
-                color: selectedColor,
-                size: selectedSize
-            }));
+                color: selectedColorString,
+                size: selectedSizeString
+            };
+            console.log("Cart payload:", cartData);
+            await dispatch(add_to_card(cartData));
         } finally {
             setIsLoading(false);
         }
@@ -143,6 +157,17 @@ const Details = () => {
             return;
         }
 
+        // Đảm bảo luôn có color và size, theo yêu cầu của backend
+        const finalColor = selectedColor || "Mặc định";
+        const finalSize = selectedSize || "Mặc định";
+
+        console.log("Buying with color:", finalColor);
+        console.log("Buying with size:", finalSize);
+
+        // Đảm bảo màu sắc và kích thước là chuỗi đơn
+        const selectedColorString = finalColor instanceof Array ? finalColor[0] : finalColor;
+        const selectedSizeString = finalSize instanceof Array ? finalSize[0] : finalSize;
+
         let price = product.discount !== 0 
             ? product.price - Math.floor((product.price * product.discount) / 100)
             : product.price;
@@ -154,10 +179,12 @@ const Details = () => {
             products: [{
                 quantity,
                 productInfo: product,
-                color: selectedColor,
-                size: selectedSize
+                color: selectedColorString,
+                size: selectedSizeString
             }]
         }];
+
+        console.log("Shipping payload:", obj);
 
         navigate('/shipping', {
             state: {

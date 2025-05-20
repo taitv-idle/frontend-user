@@ -310,7 +310,9 @@ const Shipping = () => {
                     discount: product.productInfo.discount,
                     shopId: shop.shopId,
                     name: product.productInfo.name || 'Sản phẩm',
-                    image: product.productInfo.images?.[0] || ''
+                    image: product.productInfo.images?.[0] || '',
+                    color: product.color || null,
+                    size: product.size || null
                 }))
             })).flatMap(shop => shop.products);
 
@@ -762,6 +764,20 @@ const Shipping = () => {
                                                                         <h3 className='font-medium text-gray-800'>{product.productInfo.name}</h3>
                                                                         <p className='text-sm text-gray-500'>Thương hiệu: {product.productInfo.brand}</p>
                                                                         <p className='text-sm text-gray-500'>Số lượng: {product.quantity}</p>
+                                                                        
+                                                                        {/* Hiển thị màu sắc - chỉ một giá trị đã chọn */}
+                                                                        {product.color && product.color !== "Mặc định" && (
+                                                                            <p className='text-sm text-gray-500'>
+                                                                                Màu sắc: <span className="font-medium">{product.color}</span>
+                                                                            </p>
+                                                                        )}
+                                                                        
+                                                                        {/* Hiển thị kích thước - chỉ một giá trị đã chọn */}
+                                                                        {product.size && product.size !== "Mặc định" && (
+                                                                            <p className='text-sm text-gray-500'>
+                                                                                Kích thước: <span className="font-medium">{product.size}</span>
+                                                                            </p>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                                 <div className='sm:text-right'>

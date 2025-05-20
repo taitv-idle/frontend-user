@@ -32,7 +32,6 @@ const ProductDetail = () => {
   // Xử lý dữ liệu màu sắc và kích thước
   const [processedColors, setProcessedColors] = useState([]);
   const [processedSizes, setProcessedSizes] = useState([]);
-  const [processedTags, setProcessedTags] = useState([]);
 
   useEffect(() => {
     dispatch(product_details(slug));
@@ -49,12 +48,19 @@ const ProductDetail = () => {
     }
   }, [successMessage, cardError, dispatch]);
 
+  // Chỉ giữ một useEffect để xử lý dữ liệu sản phẩm
   useEffect(() => {
     if (product) {
       // Hàm xử lý đơn giản để trích xuất dữ liệu từ chuỗi phức tạp
       const parseNestedData = (input) => {
         // Nếu không có dữ liệu, trả về mảng rỗng
         if (!input) return [];
+        
+        // Kiểm tra nếu input là mảng đơn giản (như tags: ['áo'])
+        if (Array.isArray(input) && !input.some(item => typeof item === 'object')) {
+          console.log("Input is a simple array:", input);
+          return input;
+        }
         
         try {
           // Nếu là mảng với 1 phần tử (trường hợp từ API)
@@ -126,53 +132,8 @@ const ProductDetail = () => {
         console.error("Error processing sizes:", e);
         setProcessedSizes([]);
       }
-      
-      // Xử lý tags
-      try {
-        const tags = parseNestedData(product.tags);
-        console.log("Extracted tags:", tags);
-        setProcessedTags(tags);
-      } catch (e) {
-        console.error("Error processing tags:", e);
-        setProcessedTags([]);
-      }
-    }
-  }, [product]);
 
-  // Thêm useEffect để log khi processedTags thay đổi
-  useEffect(() => {
-    console.log('Final processed tags:', processedTags);
-    
-    // Kiểm tra chi tiết từng properties của product
-    if (product) {
-      console.log('Product object keys:', Object.keys(product));
-      console.log('Product tags direct access:', product.tags);
-      
-      // Kiểm tra xem product có từ API trả về có chứa trường tags không
-      const productStr = JSON.stringify(product);
-      console.log('Product contains tags keyword:', productStr.includes('tags'));
-      console.log('Product contains "tags":', productStr.includes('"tags"'));
-      
-      // Hiển thị toàn bộ product để kiểm tra
-      console.log('Full product object:', product);
-    }
-  }, [processedTags, product]);
-
-  // Effect riêng biệt để đặt giá trị mặc định
-  useEffect(() => {
-    if (processedColors.length > 0 && !selectedColor) {
-      setSelectedColor(processedColors[0]);
-    }
-  }, [processedColors, selectedColor]);
-
-  useEffect(() => {
-    if (processedSizes.length > 0 && !selectedSize) {
-      setSelectedSize(processedSizes[0]);
-    }
-  }, [processedSizes, selectedSize]);
-
-  useEffect(() => {
-    if (product && product._id) {
+      // Khởi tạo cửa hàng đã xem gần đây
       let viewed = JSON.parse(localStorage.getItem('recentlyViewed')) || [];
       viewed = viewed.filter(p => p._id !== product._id);
       viewed.unshift({
@@ -189,6 +150,19 @@ const ProductDetail = () => {
     }
   }, [product]);
 
+  // Xóa các useEffect thừa và chỉ giữ những cái cần thiết
+  useEffect(() => {
+    if (processedColors.length > 0 && !selectedColor) {
+      setSelectedColor(processedColors[0]);
+    }
+  }, [processedColors, selectedColor]);
+
+  useEffect(() => {
+    if (processedSizes.length > 0 && !selectedSize) {
+      setSelectedSize(processedSizes[0]);
+    }
+  }, [processedSizes, selectedSize]);
+
   const handleZoom = (e) => {
     if (!isZoomed) return;
     
@@ -203,18 +177,6 @@ const ProductDetail = () => {
     setIsZoomed(!isZoomed);
     setZoomLevel(isZoomed ? 1 : 2);
   };
-
-  // Hiển thị trong console để debug
-  useEffect(() => {
-    if (product) {
-      console.log("Current product data:", {
-        shopName: product.shopName,
-        tags: processedTags,
-        colors: processedColors,
-        sizes: processedSizes
-      });
-    }
-  }, [product, processedTags, processedColors, processedSizes]);
 
   if (!product && !errorMessage) {
     return (
@@ -297,7 +259,7 @@ const ProductDetail = () => {
   return (
     <div className="bg-gray-50">
       <Header />
-
+      
       {/* Hero / Breadcrumb */}
       <section className="bg-gradient-to-r from-indigo-600 to-indigo-800 py-6 mb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
@@ -439,36 +401,6 @@ const ProductDetail = () => {
                   </div>
                 </div>
               </div>
-              
-              {/* Debug Info - Chỉ hiển thị trong development */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="bg-yellow-50 p-2 rounded-lg my-2 text-xs">
-                  <p>Debug Info:</p>
-                  <p>Colors: {JSON.stringify(processedColors)}</p>
-                  <p>Sizes: {JSON.stringify(processedSizes)}</p>
-                  <p>Tags: {JSON.stringify(processedTags)}</p>
-                  <p>Raw color: {JSON.stringify(product.color)}</p>
-                  <p>Raw shop: {product.shopName}</p>
-                </div>
-              )}
-              
-              {/* Tags của sản phẩm */}
-              {processedTags && processedTags.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-                  <span className="font-medium text-gray-700">Tags:</span>
-                  <div className="flex flex-wrap gap-1">
-                    {processedTags.map((tag, index) => (
-                      <Link 
-                        key={`tag-${index}`}
-                        to={`/products/search?tag=${encodeURIComponent(tag)}`}
-                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 px-2 py-1 rounded-md text-xs transition-colors"
-                      >
-                        #{tag}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -591,15 +523,20 @@ const ProductDetail = () => {
         </div>
         <div className="mt-6">
           {tab === 'description' ? (
-            <div className="prose max-w-none text-gray-700">
-              <h3 className="text-xl font-semibold mb-4">Chi tiết sản phẩm</h3>
-              <p>{product.description}</p>
+            <div className="prose max-w-none text-gray-700 bg-white p-6 rounded-lg shadow-sm">
+              <h3 className="text-xl font-semibold mb-4 pb-2 border-b border-gray-100">Chi tiết sản phẩm</h3>
+              
+              <div className="text-base leading-relaxed">
+                {product.description && (
+                  <div className="prose prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: product.description }} />
+                )}
+              </div>
               {product.specifications && (
-                <div className="mt-6">
+                <div className="mt-6 pt-4 border-t border-gray-100">
                   <h4 className="text-lg font-semibold mb-3">Thông số kỹ thuật</h4>
-                  <ul className="list-disc pl-5 space-y-2">
+                  <ul className="list-disc pl-5 space-y-2 text-base">
                     {Object.entries(product.specifications).map(([key, value]) => (
-                      <li key={key}>
+                      <li key={key} className="leading-relaxed">
                         <span className="font-medium">{key}:</span> {value}
                       </li>
                     ))}
@@ -608,7 +545,9 @@ const ProductDetail = () => {
               )}
             </div>
           ) : (
-            <Reviews product={product} />
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <Reviews product={product} />
+            </div>
           )}
         </div>
       </div>
@@ -621,56 +560,6 @@ const ProductDetail = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {(relatedProducts || []).map((product) => {
             const { price, discountedPrice, discount } = formatPriceWithDiscount(product.price, product.discount);
-            
-            // Xử lý tags cho sản phẩm liên quan
-            const parseNestedData = (input) => {
-              if (!input) return [];
-              
-              try {
-                if (Array.isArray(input) && input.length === 1) {
-                  const rawStr = input[0];
-                  
-                  if (typeof rawStr === 'string') {
-                    try {
-                      const parsed = JSON.parse(rawStr.replace(/\\/g, ''));
-                      if (Array.isArray(parsed)) {
-                        return parsed;
-                      }
-                    } catch (e) {
-                      // Xử lý thủ công
-                    }
-                    
-                    return rawStr
-                      .replace(/\[|\]/g, '')
-                      .replace(/\\"/g, '')
-                      .replace(/"/g, '')
-                      .split(',')
-                      .map(s => s.trim())
-                      .filter(s => s);
-                  }
-                }
-                
-                if (typeof input === 'string') {
-                  return input
-                    .replace(/\[|\]/g, '')
-                    .replace(/\\"/g, '')
-                    .replace(/"/g, '')
-                    .split(',')
-                    .map(s => s.trim())
-                    .filter(s => s);
-                }
-                
-                if (Array.isArray(input)) {
-                  return input;
-                }
-              } catch (e) {
-                console.error("Error parsing related product data:", e);
-              }
-              
-              return [];
-            };
-            
-            const productTags = parseNestedData(product.tags);
             
             return (
               <div key={product._id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
@@ -692,20 +581,6 @@ const ProductDetail = () => {
                         </span>
                       )}
                     </div>
-                    
-                    {/* Tags trên sản phẩm liên quan */}
-                    {productTags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {productTags.slice(0, 2).map((tag, i) => (
-                          <span key={i} className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-xs">
-                            #{tag}
-                          </span>
-                        ))}
-                        {productTags.length > 2 && (
-                          <span className="text-gray-500 text-xs">+{productTags.length - 2}</span>
-                        )}
-                      </div>
-                    )}
                     
                     {/* Tên cửa hàng */}
                     {product.shopName && (

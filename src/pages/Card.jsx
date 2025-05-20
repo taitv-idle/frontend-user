@@ -49,6 +49,25 @@ const Card = () => {
         }
     }, [successMessage, dispatch, userInfo?.id]);
 
+    // Debug: Log cart products data
+    useEffect(() => {
+        if (card_products.length > 0) {
+            console.log("Cart products data:", JSON.stringify(card_products, null, 2));
+            // Log chi tiết hơn về sản phẩm đầu tiên
+            if (card_products[0]?.products?.length > 0) {
+                const firstProduct = card_products[0].products[0];
+                console.log("Chi tiết sản phẩm đầu tiên:", {
+                    id: firstProduct._id,
+                    name: firstProduct.productInfo.name,
+                    color: firstProduct.color,
+                    size: firstProduct.size,
+                    productInfoColor: firstProduct.productInfo.color,
+                    productInfoSize: firstProduct.productInfo.size
+                });
+            }
+        }
+    }, [card_products]);
+
     // Điều hướng đến trang thanh toán
     const redirect = () => {
         if (!userInfo) {
@@ -201,7 +220,21 @@ const Card = () => {
                                                                     {product.productInfo.name}
                                                                 </Link>
                                                                 <p className='text-sm text-gray-500'>Thương hiệu: {product.productInfo.brand}</p>
-                                                                <p className='text-sm text-gray-500'>Màu sắc: {product.productInfo.color}</p>
+                                                                
+                                                                {/* Hiển thị màu sắc - chỉ một giá trị đã chọn */}
+                                                                {product.color && product.color !== "Mặc định" && (
+                                                                    <p className='text-sm text-gray-500'>
+                                                                        Màu sắc: <span className="font-medium">{product.color}</span>
+                                                                    </p>
+                                                                )}
+                                                                
+                                                                {/* Hiển thị kích thước - chỉ một giá trị đã chọn */}
+                                                                {product.size && product.size !== "Mặc định" && (
+                                                                    <p className='text-sm text-gray-500'>
+                                                                        Kích thước: <span className="font-medium">{product.size}</span>
+                                                                    </p>
+                                                                )}
+                                                                
                                                                 <p className='text-sm text-gray-500 mt-1'>
                                                                     Còn lại: <span className="text-green-600">{product.productInfo.stock}</span> sản phẩm
                                                                 </p>
@@ -291,6 +324,21 @@ const Card = () => {
                                                             {product.products[0].name}
                                                         </Link>
                                                         <p className='text-sm text-gray-500'>Thương hiệu: {product.products[0].brand}</p>
+                                                        
+                                                        {/* Hiển thị màu sắc - chỉ một giá trị đã chọn */}
+                                                        {product.color && product.color !== "Mặc định" && (
+                                                            <p className='text-sm text-gray-500'>
+                                                                Màu sắc: <span className="font-medium">{product.color}</span>
+                                                            </p>
+                                                        )}
+                                                        
+                                                        {/* Hiển thị kích thước - chỉ một giá trị đã chọn */}
+                                                        {product.size && product.size !== "Mặc định" && (
+                                                            <p className='text-sm text-gray-500'>
+                                                                Kích thước: <span className="font-medium">{product.size}</span>
+                                                            </p>
+                                                        )}
+                                                        
                                                         <p className='text-sm text-red-500'>Hiện không có sẵn</p>
                                                     </div>
                                                 </div>
