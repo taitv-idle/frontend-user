@@ -39,6 +39,61 @@ const Register = () => {
         return re.test(email);
     };
 
+    // Validate password
+    const validatePassword = (password) => {
+        if (!password) {
+            return {
+                isValid: false,
+                message: 'Vui lòng nhập mật khẩu'
+            };
+        }
+        
+        // Kiểm tra độ dài tối thiểu
+        if (password.length < 8) {
+            return {
+                isValid: false,
+                message: 'Mật khẩu phải có ít nhất 8 ký tự'
+            };
+        }
+
+        // Kiểm tra có ít nhất một chữ hoa
+        if (!/[A-Z]/.test(password)) {
+            return {
+                isValid: false,
+                message: 'Mật khẩu phải có ít nhất một chữ cái in hoa'
+            };
+        }
+
+        // Kiểm tra có ít nhất một chữ thường
+        if (!/[a-z]/.test(password)) {
+            return {
+                isValid: false,
+                message: 'Mật khẩu phải có ít nhất một chữ cái thường'
+            };
+        }
+
+        // Kiểm tra có ít nhất một chữ số
+        if (!/[0-9]/.test(password)) {
+            return {
+                isValid: false,
+                message: 'Mật khẩu phải có ít nhất một chữ số'
+            };
+        }
+
+        // Kiểm tra có ít nhất một ký tự đặc biệt
+        if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
+            return {
+                isValid: false,
+                message: 'Mật khẩu phải có ít nhất một ký tự đặc biệt (!@#$%^&*...)'
+            };
+        }
+
+        return {
+            isValid: true,
+            message: 'Mật khẩu hợp lệ'
+        };
+    };
+
     const inputHandle = (e) => {
         const { name, value } = e.target;
         setState({
@@ -74,11 +129,9 @@ const Register = () => {
             isValid = false;
         }
 
-        if (!state.password) {
-            newErrors.password = 'Vui lòng nhập mật khẩu';
-            isValid = false;
-        } else if (state.password.length < 6) {
-            newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+        const passwordValidation = validatePassword(state.password);
+        if (!passwordValidation.isValid) {
+            newErrors.password = passwordValidation.message;
             isValid = false;
         }
 
@@ -206,6 +259,13 @@ const Register = () => {
                                     {errors.password && (
                                         <p className="mt-1 text-sm text-red-500">{errors.password}</p>
                                     )}
+                                    <ul className="mt-1 text-xs text-gray-500 list-disc list-inside">
+                                        <li>Ít nhất 8 ký tự</li>
+                                        <li>Ít nhất một chữ cái in hoa</li>
+                                        <li>Ít nhất một chữ cái thường</li>
+                                        <li>Ít nhất một chữ số</li>
+                                        <li>Ít nhất một ký tự đặc biệt (!@#$%^&*...)</li>
+                                    </ul>
                                 </div>
 
                                 <button

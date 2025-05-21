@@ -31,6 +31,34 @@ export const customer_login = createAsyncThunk(
 )
 // End Method 
 
+// Forgot password - request reset link
+export const forgot_password = createAsyncThunk(
+    'auth/forgot_password',
+    async(info, { rejectWithValue, fulfillWithValue }) => {
+        try {
+            const { data } = await api.post('/customer/forgot-password', info)
+            return fulfillWithValue(data)
+        } catch (error) {
+            return rejectWithValue(error.response?.data || { error: 'Có lỗi xảy ra khi gửi yêu cầu đặt lại mật khẩu' })
+        }
+    }
+)
+// End Method
+
+// Reset password with token
+export const reset_password = createAsyncThunk(
+    'auth/reset_password',
+    async(info, { rejectWithValue, fulfillWithValue }) => {
+        try {
+            const { data } = await api.post('/customer/reset-password', info)
+            return fulfillWithValue(data)
+        } catch (error) {
+            return rejectWithValue(error.response?.data || { error: 'Có lỗi xảy ra khi đặt lại mật khẩu' })
+        }
+    }
+)
+// End Method
+
 // Add this new thunk to get current user information
 export const get_user_info = createAsyncThunk(
     'auth/getUserInfo',
@@ -147,6 +175,32 @@ export const authReducer = createSlice({
             state.userInfo = userInfo
         })
 
+        // Forgot password
+        .addCase(forgot_password.pending, (state) => {
+            state.loader = true;
+        })
+        .addCase(forgot_password.rejected, (state, { payload }) => {
+            state.errorMessage = payload?.error || 'Có lỗi xảy ra khi gửi yêu cầu đặt lại mật khẩu';
+            state.loader = false;
+        })
+        .addCase(forgot_password.fulfilled, (state, { payload }) => {
+            state.successMessage = payload.message || 'Đã gửi email hướng dẫn đặt lại mật khẩu';
+            state.loader = false;
+        })
+
+        // Reset password
+        .addCase(reset_password.pending, (state) => {
+            state.loader = true;
+        })
+        .addCase(reset_password.rejected, (state, { payload }) => {
+            state.errorMessage = payload?.error || 'Có lỗi xảy ra khi đặt lại mật khẩu';
+            state.loader = false;
+        })
+        .addCase(reset_password.fulfilled, (state, { payload }) => {
+            state.successMessage = payload.message || 'Đặt lại mật khẩu thành công';
+            state.loader = false;
+        })
+
         // Get user info
         .addCase(get_user_info.pending, (state) => {
             state.loader = true;
@@ -202,27 +256,19 @@ export const authReducer = createSlice({
                 }
             }
             
-            state.successMessage = payload.message;
+            state.successMessage = payload.message || 'Cập nhật thông tin thành công';
         })
         .addCase(update_user_info.rejected, (state, { payload }) => {
             state.loader = false;
-            state.errorMessage = payload;
+            state.errorMessage = payload || 'Lỗi cập nhật thông tin';
         })
 
         // User logout
-        .addCase(user_logout.pending, (state) => {
-            state.loader = true;
-        })
         .addCase(user_logout.fulfilled, (state) => {
-            state.loader = false;
             state.userInfo = '';
-            state.successMessage = 'Đăng xuất thành công';
-        })
-        .addCase(user_logout.rejected, (state, { payload }) => {
-            state.loader = false;
-            state.errorMessage = payload;
         })
     }
 })
-export const {messageClear,user_reset} = authReducer.actions
+
+export const { messageClear, user_reset } = authReducer.actions
 export default authReducer.reducer
